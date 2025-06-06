@@ -1,32 +1,46 @@
-name: Shopee Automation
+name: Atualizar CSV Shopee
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # Roda todos os dias às 07h da manhã (Horário de Brasília)
-  workflow_dispatch:  # Permite rodar manualmente também
+    - cron: '*/5 * * * *'  # Executa de hora em hora
+  workflow_dispatch:
 
 jobs:
-  run-script:
+  selenium-job:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout do código
-      uses: actions/checkout@v3
+      - name: Checkout código
+        uses: actions/checkout@v3
 
-    - name: Instalar Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
+      - name: Instalar Google Chrome
+        run: |
+          sudo apt update
+          sudo apt install -y wget unzip xvfb libnss3 libgconf-2-4 libxi6 libgbm1
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt install -y ./google-chrome-stable_current_amd64.deb
 
-    - name: Instalar dependências
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        playwright install chromium
+      - name: Instalar ChromeDriver compatível
+        run: |
+          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
+          CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | jq -r ".channels.Stable.version")
+          wget -q "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
+          unzip chromedriver-linux64.zip
+          sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
+          sudo chmod +x /usr/local/bin/chromedriver
 
-    - name: Criar hxh.json com segredo
-      run: |
-        echo "${{ secrets.HXH_JSON }}" > hxh.json
+      - name: Configurar ambiente Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Executar o script
-      run: python main.py
+      - name: Adicionar credenciais do Google (secrets)
+        run: |
+          echo "${{ secrets.HXH_CREDENTIALS_JSON }}" > hxh.json
+
+      - name: Executar script
+        env:
+          DISPLAY: ":99"
+        run: |
+          Xvfb :99 &  # executa Chrome em ambiente virtual
+          python main.py
