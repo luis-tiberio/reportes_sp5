@@ -2,7 +2,7 @@ name: Shopee Automation
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # Roda todos os dias às 07h da manhã (Horário de Brasília)
+    - cron: '*/5 * * * *'  # Roda todos os dias às 07h da manhã (Horário de Brasília)
   workflow_dispatch:  # Permite rodar manualmente também
 
 jobs:
