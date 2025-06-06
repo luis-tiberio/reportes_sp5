@@ -9,22 +9,30 @@ import os
 import shutil
 
 async def login(page):
-    """Realiza o login no site Shopee."""
     await page.goto("https://spx.shopee.com.br/")
+    await page.wait_for_timeout(5000)  # aguarda o carregamento inicial
+
     try:
-        await page.wait_for_selector('input[placeholder="Ops ID"]', timeout=15000)
+        # Preenche os campos de login com seletores robustos
         await page.fill('input[placeholder="Ops ID"]', 'Ops34139')
         await page.fill('input[placeholder="Senha"]', '@Shopee1234')
-        await page.click('button[type="submit"]')
-        await page.wait_for_timeout(15000)
+
+        # Usa seletor por texto no botão (mais seguro que XPath ou [type="submit"])
+        await page.get_by_role("button", name="Entrar").click()
+
+        await page.wait_for_timeout(10000)  # espera o redirecionamento após login
+
+        # Fecha possível pop-up
         try:
-            await page.click('.ssc-dialog-close', timeout=20000)
-        except Exception:
-            print("Nenhum pop-up foi encontrado.")
+            await page.locator(".ssc-dialog-close").click(timeout=5000)
+        except:
+            print("Nenhum pop-up encontrado.")
             await page.keyboard.press("Escape")
+
     except Exception as e:
         print(f"Erro no login: {e}")
         raise
+
 
 async def get_data(page, download_dir):
     """Coleta os dados necessários e realiza o download."""
