@@ -37,7 +37,7 @@ async def get_data(page, download_dir):
         #await page.wait_for_selector('li.ssc-react-rc-menu-item.ssc-react-rc-menu-item-active.ssc-react-menu-item span.ssc-react-menu-icon span', timeout=5000)
         await page.wait_for_timeout(5000)
         #await page.click('li.ssc-react-rc-menu-item.ssc-react-rc-menu-item-active.ssc-react-menu-item span.ssc-react-menu-icon span')
-        await page.locator('//li[@class="ssc-react-rc-menu-item ssc-react-rc-menu-item-active ssc-react-menu-item"]//span[contains(text(),"Export")]').click()
+        await page.locator('/html[1]/body[1]/div[3]/ul[1]/li[1]/span[1]/div[1]/div[1]/span[1]').click()
         await page.wait_for_timeout(5000)  # ou ajustar para o tempo de resposta esperado
         await page.goto("https://spx.shopee.com.br/#/taskCenter/exportTaskCenter")
         await page.wait_for_timeout(10000)
