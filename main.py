@@ -54,7 +54,7 @@ async def get_data(page, download_dir):
                 #await page.hover('//tr[1]')  # Garante visibilidade se o botão for exibido com hover
 
                 async with page.expect_download() as download_info:
-                    await page.locator('tr.ssc-table-row.ssc-table-row-highlighted td.ssc-table-body-column-fixed div div.ssc-table-header-column-container button[type="button"] span span').first.click()
+                    await page.locator('//tr[@class="ssc-table-row ssc-table-row-highlighted"]//td[@class="ssc-table-body-column-fixed"]//div//div[@class="ssc-table-header-column-container"]//button[@type="button"]//span//span[contains(text(),"Download")]').first.click()
                 download = await download_info.value
 
                 # Salva o arquivo no diretório de download
