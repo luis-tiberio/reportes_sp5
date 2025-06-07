@@ -2,8 +2,8 @@ name: Shopee Automation
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # Roda todos os dias às 07h da manhã (Horário de Brasília)
-  workflow_dispatch:  # Permite rodar manualmente também
+    - cron: '*/30 * * * *'  # Executa a cada 30 minutos
+  workflow_dispatch:        # Permite execução manual
 
 jobs:
   run-script:
@@ -26,7 +26,11 @@ jobs:
 
     - name: Criar hxh.json com segredo
       run: |
-        echo "${{ secrets.HXH_JSON }}" > hxh.json
+        mkdir -p /app
+        echo "${{ secrets.HXH_JSON }}" > /app/hxh.json
 
     - name: Executar o script
       run: python main.py
+      env:
+        PYPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+        PLAYWRIGHT_BROWSERS_PATH: 0
