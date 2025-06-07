@@ -13,13 +13,13 @@ async def login(page):
     """Realiza o login no site Shopee."""
     await page.goto("https://spx.shopee.com.br/")
     try:
-        await page.wait_for_selector('input[placeholder='Ops ID']', timeout=15000)
-        await page.fill('input[placeholder='Ops ID']', 'Ops34139')
-        await page.fill('input[placeholder='Senha']"]', '@Shopee1234')
+        await page.wait_for_selector('input[placeholder="Ops ID"]', timeout=15000)
+        await page.fill('input[placeholder="Ops ID"]', 'Ops34139')
+        await page.fill('input[placeholder="Senha"]', '@Shopee1234')
         await page.click('._tYDNB')
         await page.wait_for_timeout(15000)
         try:
-            await page.click('p[class='ssc-dialog-close-icon-wrapper'] svg path', timeout=20000)
+            await page.click('.ssc-dialog-close', timeout=20000)
         except:
             print("Nenhum pop-up foi encontrado.")
             await page.keyboard.press("Escape")
