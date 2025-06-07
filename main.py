@@ -15,8 +15,8 @@ async def login(page):
     await page.goto("https://spx.shopee.com.br/")
     try:
         await page.wait_for_selector('input[placeholder="Ops ID"]', timeout=15000)
-        await page.fill('input[placeholder="Ops ID"]', 'Ops34139')
-        await page.fill('input[placeholder="Senha"]', '@Shopee1234')
+        await page.fill('input[placeholder="Ops ID"]', 'Ops35685')
+        await page.fill('input[placeholder="Senha"]', '@Shopee666')
         await page.click('._tYDNB')
         await page.wait_for_timeout(15000)
         try:
