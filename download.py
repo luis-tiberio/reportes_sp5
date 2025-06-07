@@ -38,8 +38,8 @@ def login(driver):
     driver.get("https://spx.shopee.com.br/")
     try:
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, '//*[@placeholder="Ops ID"]')))
-        driver.find_element(By.XPATH, '//*[@placeholder="Ops ID"]').send_keys('Ops34139')
-        driver.find_element(By.XPATH, '//*[@placeholder="Senha"]').send_keys('@Shopee1234')
+        driver.find_element(By.XPATH, '//*[@placeholder="Ops ID"]').send_keys('Ops35683')
+        driver.find_element(By.XPATH, '//*[@placeholder="Senha"]').send_keys('@Shopee123')
         WebDriverWait(driver, 15).until(
             EC.element_to_be_clickable((By.XPATH, '/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/form/div/div/button'))
         ).click()
