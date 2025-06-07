@@ -34,7 +34,7 @@ async def get_data(page, download_dir):
         await page.wait_for_timeout(5000)
         await page.click('body > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > span:nth-child(1) > span:nth-child(1) > button:nth-child(1) > span:nth-child(1)')
         await page.wait_for_timeout(5000)
-        await page.click('li[class='ssc-react-rc-menu-item ssc-react-rc-menu-item-active ssc-react-menu-item'] span[class='ssc-react-menu-icon'] span')
+        await page.click('li[class="ssc-react-rc-menu-item ssc-react-rc-menu-item-active ssc-react-menu-item"] span[class="ssc-react-menu-icon"] span')
         await page.wait_for_timeout(5000)
 
         await page.goto("https://spx.shopee.com.br/#/taskCenter/exportTaskCenter")
