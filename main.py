@@ -13,8 +13,8 @@ async def login(page):
     await page.goto("https://spx.shopee.com.br/")
     try:
         await page.wait_for_selector('input[placeholder="Ops ID"]', timeout=15000)
-        await page.fill('input[placeholder="Ops ID"]', 'Ops35685')
-        await page.fill('input[placeholder="Senha"]', '@Shopee666')
+        await page.fill('input[placeholder="Ops ID"]', 'Ops35683')
+        await page.fill('input[placeholder="Senha"]', '@Shopee123')
         await page.click('._tYDNB')
         await page.wait_for_timeout(15000)
         try:
@@ -66,7 +66,7 @@ def update_packing_google_sheets():
         scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         creds = Credentials.from_service_account_file('hxh.json', scopes=scope)
         client = gspread.authorize(creds)
-        sheet1 = client.open_by_url("https://docs.google.com/spreadsheets/d/1nMLHR6Xp5xzQjlhwXufecG1INSQS4KrHn41kqjV9Rmk/edit?gid=0#gid=0")
+        sheet1 = client.open_by_url("https://docs.google.com/spreadsheets/d/1hoXYiyuArtbd2pxMECteTFSE75LdgvA2Vlb6gPpGJ-g/edit?gid=0#gid=0")
         worksheet1 = sheet1.worksheet("Base SPX")
         df = pd.read_csv(csv_file_path)
         df = df.fillna("")
