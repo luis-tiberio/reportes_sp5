@@ -25,7 +25,7 @@ async def login(page):
     except Exception as e:
         print(f"Erro no login: {e}")
         raise
-
+"""
 async def get_data(page, download_dir):
     try:
         await page.goto("https://spx.shopee.com.br/#/staging-area-management/list/outbound")
@@ -38,7 +38,7 @@ async def get_data(page, download_dir):
     except Exception as e:
         print(f"Erro ao coletar dados: {e}")
         raise
-
+"""
 def rename_downloaded_file(download_dir):
     try:
         files = os.listdir(download_dir)
@@ -84,7 +84,7 @@ async def main():
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
             await login(page)
-            await get_data(page, download_dir)
+            #await get_data(page, download_dir)
             print("Chamando Selenium...")
             subprocess.run(["python", "download.py"])
             update_packing_google_sheets()
