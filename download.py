@@ -62,14 +62,14 @@ def login(driver):
 def get_data(driver):
     try:
         driver.get("https://spx.shopee.com.br/#/staging-area-management/list/outbound")
-        time.sleep(5)
+        time.sleep(8)
         driver.find_element(By.XPATH, '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div/div/span/span/button').click()
-        time.sleep(5)
+        time.sleep(8)
         driver.find_element(By.XPATH, '/html[1]/body[1]/div[4]/ul[1]/li[1]/span[1]/div[1]/div[1]/span[1]').click()
-        time.sleep(5)
+        time.sleep(8)
 
         driver.get("https://spx.shopee.com.br/#/taskCenter/exportTaskCenter")
-        time.sleep(10)
+        time.sleep(15)
 
         # 👉 Mantendo o botão de download exatamente como no seu código original:
         driver.find_element(
