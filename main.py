@@ -32,24 +32,10 @@ async def get_data(page, download_dir):
     try:
         await page.goto("https://spx.shopee.com.br/#/staging-area-management/list/outbound")
         await page.wait_for_timeout(5000)
-
-        # 1. Clicar no botão "Export"
-await page.locator('button:has-text("Export")').click()
-
-# 2. Esperar o menu dropdown renderizar
-await page.wait_for_selector('li.ssc-react-rc-menu-item.ssc-react-rc-menu-item-active.ssc-react-menu-item span.ssc-react-menu-icon span', timeout=5000)
-
-# 3. Clicar no botão que inicia o download
-await page.click('li.ssc-react-rc-menu-item.ssc-react-rc-menu-item-active.ssc-react-menu-item span.ssc-react-menu-icon span')
-
-# 4. Espera o processo de backend disparar
-await page.wait_for_timeout(5000)  # ou ajustar para o tempo de resposta esperado
-"""
-        await page.click('body > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > span:nth-child(1) > span:nth-child(1) > button:nth-child(1) > span:nth-child(1)')
-        await page.wait_for_timeout(5000)
-        await page.click('li[class="ssc-react-rc-menu-item ssc-react-rc-menu-item-active ssc-react-menu-item"] span[class="ssc-react-menu-icon"] span')
-        await page.wait_for_timeout(5000) 
-"""
+        await page.locator('button:has-text("Export")').click()
+        await page.wait_for_selector('li.ssc-react-rc-menu-item.ssc-react-rc-menu-item-active.ssc-react-menu-item span.ssc-react-menu-icon span', timeout=5000)
+        await page.click('li.ssc-react-rc-menu-item.ssc-react-rc-menu-item-active.ssc-react-menu-item span.ssc-react-menu-icon span')
+        await page.wait_for_timeout(5000)  # ou ajustar para o tempo de resposta esperado
         await page.goto("https://spx.shopee.com.br/#/taskCenter/exportTaskCenter")
         await page.wait_for_timeout(10000)
 
