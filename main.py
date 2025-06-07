@@ -1,12 +1,5 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
-from google.oauth2.service_account import Credentials
+import asyncio
+from playwright.async_api import async_playwright
 import pandas as pd
 import gspread
 import time
@@ -14,81 +7,52 @@ import datetime
 import os
 import shutil
 
-# Caminho para o ChromeDriver e Chrome Canary
-chrome_driver_path = 'C:/Python/atualizacao-hxh/driver-canary/chromedriver.exe'
-chrome_binary_path = r'C:\Python\atualizacao-hxh\chrome-win64\chrome.exe'
-download_dir = r'C:\Python\atualizacao-hxh\EXP'  # Diretório onde os arquivos serão salvos
+# Remova as importações e configurações do Selenium
 
-# Configuração do ChromeDriver com diretório de download
-chrome_prefs = {
-    "download.default_directory": download_dir,  # Define o diretório padrão de download
-    "download.prompt_for_download": False,       # Desativa o pop-up de confirmação
-    "download.directory_upgrade": True,
-    "safebrowsing.enabled": True,
-    "safebrowsing.disable_download_protection": True  # Evita bloqueios de segurança
-}
-
-# Configurações do ChromeDriver
-options = Options()
-options.binary_location = chrome_binary_path
-options.add_argument('--incognito')
-options.add_argument('--start-maximized')
-options.add_argument('--no-sandbox')
-options.add_argument('--disable-extensions')
-options.add_argument('--window-size=3000x3000')
-options.add_argument('--force-device-scale-factor=0.9')
-#options.add_argument('--headless')  # Executa em modo headless (remova se quiser ver a interface)
-options.add_experimental_option("prefs", chrome_prefs)
-
-service = Service(executable_path=chrome_driver_path)
-driver = webdriver.Chrome(service=service, options=options)
-time.sleep(2)
-driver.set_window_size(3000, 3000)
-
-def login(driver):
+async def login(page):
     """Realiza o login no site Shopee."""
-    driver.get("https://spx.shopee.com.br/")
+    await page.goto("https://spx.shopee.com.br/")
     try:
-        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, '//*[@placeholder="Ops ID"]')))
-        username_elem = driver.find_element(By.XPATH, '//*[@placeholder="Ops ID"]')
-        password_elem = driver.find_element(By.XPATH, '//*[@placeholder="Senha"]')
-        username_elem.send_keys('Ops34139')
-        password_elem.send_keys('@Shopee1234')
-        login_button = WebDriverWait(driver, 15).until(
-            EC.element_to_be_clickable((By.XPATH, '/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/form/div/div/button'))
-        )
-        login_button.click()
-        time.sleep(15)
+        await page.wait_for_selector('input[placeholder='Ops ID']', timeout=15000)
+        await page.fill('input[placeholder='Ops ID']', 'Ops34139')
+        await page.fill('input[placeholder='Senha']"]', '@Shopee1234')
+        await page.click('._tYDNB')
+        await page.wait_for_timeout(15000)
         try:
-            popup = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, '//*[@class="ssc-dialog-close"]')))
-            popup.click()
+            await page.click('p[class='ssc-dialog-close-icon-wrapper'] svg path', timeout=20000)
         except:
             print("Nenhum pop-up foi encontrado.")
-            driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+            await page.keyboard.press("Escape")
     except Exception as e:
         print(f"Erro no login: {e}")
-        driver.quit()
         raise
 
-def get_data(driver):
+async def get_data(page, download_dir):
     """Coleta os dados necessários e realiza o download."""
     try:
-        driver.get("https://spx.shopee.com.br/#/staging-area-management/list/outbound")
-        time.sleep(5)
-        driver.find_element(By.XPATH, '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div/div/span/span/button').click()
-        time.sleep(5)
-        driver.find_element(By.XPATH, '/html[1]/body[1]/div[4]/ul[1]/li[1]/span[1]/div[1]/div[1]/span[1]').click()
-        time.sleep(5)
+        await page.goto("https://spx.shopee.com.br/#/staging-area-management/list/outbound")
+        await page.wait_for_timeout(5000)
+        await page.click('body > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > span:nth-child(1) > span:nth-child(1) > button:nth-child(1) > span:nth-child(1)')
+        await page.wait_for_timeout(5000)
+        await page.click('li[class='ssc-react-rc-menu-item ssc-react-rc-menu-item-active ssc-react-menu-item'] span[class='ssc-react-menu-icon'] span')
+        await page.wait_for_timeout(5000)
 
-        driver.get("https://spx.shopee.com.br/#/taskCenter/exportTaskCenter")
-        time.sleep(10)
-        driver.find_element(By.XPATH, '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[1]/div[8]/div/div[1]/div/div[2]/div[1]/div[1]/div[2]/div/div/div/table/tbody[2]/tr[1]/td[7]/div/div/button/span').click()
-        time.sleep(15)  # Aguarda o download ser concluído
+        await page.goto("https://spx.shopee.com.br/#/taskCenter/exportTaskCenter")
+        await page.wait_for_timeout(10000)
+
+        # Inicia o download
+        async with page.expect_download() as download_info:
+            await page.click('tr[class='ssc-table-row ssc-table-row-highlighted'] td[class='ssc-table-body-column-fixed ssc-table-body-column-fixed-right-first'] div div[class='ssc-table-header-column-container'] button[type='button'] span span')
+        download = await download_info.value
+
+        # Salva o arquivo no diretório de download
+        file_path = os.path.join(download_dir, download.suggested_filename)
+        await download.save_as(file_path)
+        await page.wait_for_timeout(15000)  # Tempo para o download ser concluído
         rename_downloaded_file(download_dir)
-        
+
     except Exception as e:
         print(f"Erro ao coletar dados: {e}")
-        driver.quit()
         raise
 
 def rename_downloaded_file(download_dir):
@@ -120,23 +84,22 @@ def update_packing_google_sheets():
         # Nome do arquivo CSV baseado na hora atual
         current_hour = datetime.datetime.now().strftime("%H")
         csv_file_name = f"EXP-{current_hour}.csv"
-        csv_folder_path = r"C:\Python\atualizacao-hxh\EXP"
+        csv_folder_path = "/tmp"  # Use /tmp no Render
         csv_file_path = os.path.join(csv_folder_path, csv_file_name)
 
         # Verifica se o arquivo existe
         if not os.path.exists(csv_file_path):
             print(f"Arquivo {csv_file_path} não encontrado.")
             return
-        
+
         # Configuração da API Google Sheets
         scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds = Credentials.from_service_account_file("hxh.json", scopes=scope)
+        creds = ServiceAccountCredentials.from_json_keyfile_name('/app/hxh.json', scope)  # Caminho no Render
         client = gspread.authorize(creds)
-
 
         # --------- PRIMEIRO UPLOAD NA PLANILHA 1 ---------
         # Acessa a primeira planilha e aba 'Base SPX'
-        sheet1 = client.open_by_url("https://docs.google.com/spreadsheets/d/1hoXYiyuArtbd2pxMECteTFSE75LdgvA2Vlb6gPpGJ-g/edit?gid=0#gid=0")
+        sheet1 = client.open_by_url("https://docs.google.com/spreadsheets/d/1nMLHR6Xp5xzQjlhwXufecG1INSQS4KrHn41kqjV9Rmk/edit?gid=0#gid=0")
         worksheet1 = sheet1.worksheet("Base SPX")  # Acessa a aba 'Base SPX'
 
         # Carregar os dados do CSV
@@ -153,22 +116,29 @@ def update_packing_google_sheets():
         # Adicionando uma pausa de 5 segundos (ajuste o tempo conforme necessário)
         time.sleep(5)
 
-    
+
     except Exception as e:
         print(f"Erro durante o processo: {e}")
 
 
-def main():
+async def main():
+    # Defina o diretório de download
+    download_dir = "/tmp"  # Diretório temporário no Render
+
     try:
-        login(driver)
-        get_data(driver)
-        update_packing_google_sheets()
-        print("Dados atualizados com sucesso.")
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)  # Rodar sem interface gráfica
+            page = await browser.new_page()
+            await login(page)
+            await get_data(page, download_dir)
+            update_packing_google_sheets()
+            print("Dados atualizados com sucesso.")
+
+            await browser.close()
 
     except Exception as e:
         print(f"Erro durante o processo: {e}")
-    finally:
-        driver.quit()
 
+# Execute a função main
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
