@@ -47,8 +47,8 @@ async def get_data(page, download_dir):
         # Inicia o download
         async with page.expect_download() as download_info:
             # await page.click('tr[class="ssc-table-row ssc-table-row-highlighted"] td[class="ssc-table-body-column-fixed ssc-table-body-column-fixed-right-first"] div div[class="ssc-table-header-column-container"] button[type="button"] span span')
-            await page.wait_for_selector('(//span[contains(text(),"Download")])[1]', timeout=10000)
-            await page.click('(//span[contains(text(),"Download")])[1]')
+            await page.wait_for_selector('//*[@id="fms-container"]/div[2]/div[2]/div/div/div/div[1]/div[8]/div/div[1]/div/div[2]/div[1]/div[1]/div[2]/div/div/div/table/tbody[2]/tr[1]/td[7]/div/div/button/span/span', timeout=10000)
+            await page.click('//*[@id="fms-container"]/div[2]/div[2]/div/div/div/div[1]/div[8]/div/div[1]/div/div[2]/div[1]/div[1]/div[2]/div/div/div/table/tbody[2]/tr[1]/td[7]/div/div/button/span/span')
         download = await download_info.value
 
         # Salva o arquivo no diretório de download
