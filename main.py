@@ -32,9 +32,12 @@ async def get_data(page, download_dir):
     try:
         await page.goto("https://spx.shopee.com.br/#/staging-area-management/list/outbound")
         await page.wait_for_timeout(5000)
-        await page.locator('button:has-text("Export")').click()
-        await page.wait_for_selector('li.ssc-react-rc-menu-item.ssc-react-rc-menu-item-active.ssc-react-menu-item span.ssc-react-menu-icon span', timeout=5000)
-        await page.click('li.ssc-react-rc-menu-item.ssc-react-rc-menu-item-active.ssc-react-menu-item span.ssc-react-menu-icon span')
+        #await page.locator('button:has-text("Export")').click()
+        await page.locator('//button[@type="button"]//span[contains(text(),"Export")]').click()
+        #await page.wait_for_selector('li.ssc-react-rc-menu-item.ssc-react-rc-menu-item-active.ssc-react-menu-item span.ssc-react-menu-icon span', timeout=5000)
+        await page.wait_for_timeout(5000)
+        #await page.click('li.ssc-react-rc-menu-item.ssc-react-rc-menu-item-active.ssc-react-menu-item span.ssc-react-menu-icon span')
+        await page.locator('//li[@class="ssc-react-rc-menu-item ssc-react-rc-menu-item-active ssc-react-menu-item"]//span[contains(text(),"Export")]').click()
         await page.wait_for_timeout(5000)  # ou ajustar para o tempo de resposta esperado
         await page.goto("https://spx.shopee.com.br/#/taskCenter/exportTaskCenter")
         await page.wait_for_timeout(10000)
