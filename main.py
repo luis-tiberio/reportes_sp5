@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 from google.oauth2.service_account import Credentials
+from oauth2client.service_account import ServiceAccountCredentials
 
 async def login(page):
     await page.goto("https://spx.shopee.com.br/")
