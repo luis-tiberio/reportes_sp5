@@ -84,7 +84,7 @@ async def main():
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
-            await login(page)
+            #await login(page)
             #await get_data(page, download_dir)
             print("Chamando Selenium...")
             subprocess.run(["python", "download.py"])
