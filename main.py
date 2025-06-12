@@ -75,7 +75,7 @@ def update_packing_google_sheets_ws():
 
 async def main():
     download_dir = "/tmp"
-    download_dir2 = "/ws"
+    download_dir2 = download_dir
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
@@ -87,9 +87,11 @@ async def main():
             await asyncio.to_thread(subprocess.run, ["python", "download_prod.py"])
             await asyncio.to_thread(update_packing_google_sheets_prod)
 
+            """
             print("Chamando WS...")
             await asyncio.to_thread(subprocess.run, ["python", "download_ws.py"])
             await asyncio.to_thread(update_packing_google_sheets_ws)
+            """
 
             print("Dados atualizados com sucesso.")
             await browser.close()
