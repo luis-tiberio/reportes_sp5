@@ -10,7 +10,7 @@ import os
 import shutil
 
 # Diretório de download para GitHub Actions
-download_dir2 = "/ws"
+download_dir2 = "/temp/ws"
 
 # Cria o diretório, se não existir
 os.makedirs(download_dir2, exist_ok=True)
