@@ -65,14 +65,18 @@ def get_data(driver):
         time.sleep(8)
         driver.find_element(By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/span[1]').click()
         time.sleep(10)
-        botao = WebDriverWait(driver, 15).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".ssc-button.batch-actions-btn.ssc-btn-type-primary")))
-        botao.click()
+        #botao = WebDriverWait(driver, 15).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".ssc-button.batch-actions-btn.ssc-btn-type-primary")))
+        #botao.click()
+        driver.find_element(By.XPATH, '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[2]/div[2]/div/div[1]/div[2]/div[3]/span/span/span/button').click()
+        time.sleep(10)
         driver.find_element(By.XPATH, '/html[1]/body[1]/span[1]/div[1]/div[1]/div[1]').click()
         time.sleep(5)
 
         driver.get("https://spx.shopee.com.br/#/taskCenter/exportTaskCenter")
         time.sleep(15)
 
+        driver.find_element(By.XPATH, '/html/body/div[1]/div/div[2]/div[1]/div[1]/span/span[1]/span').click()
+        time.sleep(5)
         # 👉 Mantendo o botão de download exatamente como no seu código original:
         driver.find_element(
             By.XPATH,
