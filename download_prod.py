@@ -58,7 +58,6 @@ def login(driver):
         driver.quit()
         raise
 
-
 def get_data(driver):
     try:
         driver.get("https://spx.shopee.com.br/#/dashboard/toProductivity?page_type=Outbound")
@@ -69,19 +68,25 @@ def get_data(driver):
         #botao.click()
         driver.find_element(By.XPATH, '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[2]/div[2]/div/div[1]/div[2]/div[3]/span/span/span/button').click()
         time.sleep(10)
-        driver.find_element(By.XPATH, '/html[1]/body[1]/span[1]/div[1]/div[1]/div[1]').click()
+        WebDriverWait(driver, 15).until(
+            EC.element_to_be_clickable((By.XPATH, '/html[1]/body[1]/span[1]/div[1]/div[1]/div[1]'))
+        ).click()
+        #driver.find_element(By.XPATH, '//div[@class="ssc-dropdown-item"][normalize-space()="Export"]').click()
         time.sleep(5)
 
+        
         driver.get("https://spx.shopee.com.br/#/taskCenter/exportTaskCenter")
         time.sleep(15)
 
-        driver.find_element(By.XPATH, '/html/body/div[1]/div/div[2]/div[1]/div[1]/span/span[1]/span').click()
-        time.sleep(5)
+
         # 👉 Mantendo o botão de download exatamente como no seu código original:
+        
         driver.find_element(
             By.XPATH,
-            '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[1]/div[8]/div/div[1]/div/div[2]/div[1]/div[1]/div[2]/div/div/div/table/tbody[2]/tr[1]/td[7]/div/div/button/span/span'
+            '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[1]/div[8]/div/div[1]/div/div[2]/div[1]/div[1]/div[2]/div/div/div/table/tbody[2]/tr[1]/td[7]/div/div/button'
         ).click()
+        
+        
 
         time.sleep(15)  # Aguarda o download
         rename_downloaded_file(download_dir)
