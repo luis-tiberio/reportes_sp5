@@ -65,8 +65,8 @@ def get_data(driver):
         time.sleep(8)
         driver.find_element(By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/span[1]').click()
         time.sleep(10)
-        driver.find_element(By.CSS_SELECTOR, 'ssc-button batch-actions-btn ssc-btn-type-primary').click()
-        time.sleep(5)
+        botao = WebDriverWait(driver, 15).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".ssc-button.batch-actions-btn.ssc-btn-type-primary")))
+        botao.click()
         driver.find_element(By.XPATH, '/html[1]/body[1]/span[1]/div[1]/div[1]/div[1]').click()
         time.sleep(5)
 
