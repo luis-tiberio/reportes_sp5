@@ -54,7 +54,7 @@ def update_packing_google_sheets_ws():
     try:
         current_hour = datetime.datetime.now().strftime("%H")
         csv_file_name = f"WS-{current_hour}.csv"
-        csv_folder_path = "/ws"
+        csv_folder_path = "/tmp"
         csv_file_path = os.path.join(csv_folder_path, csv_file_name)
         if not os.path.exists(csv_file_path):
             print(f"Arquivo {csv_file_path} não encontrado.")
