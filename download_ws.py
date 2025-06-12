@@ -83,9 +83,19 @@ def get_data(driver):
         time.sleep(10)
 
         driver.get("https://spx.shopee.com.br/#/taskCenter/exportTaskCenter")
-        time.sleep(30)
-        driver.find_element(By.XPATH, '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[1]/div[8]/div/div[1]/div/div[2]/div[1]/div[1]/div[2]/div/div/div/table/tbody[2]/tr[1]/td[7]/div/div/button/span').click()
-        time.sleep(35)  # Aguarda o download ser concluído
+        time.sleep(15)
+
+
+        # 👉 Mantendo o botão de download exatamente como no seu código original:
+        
+        driver.find_element(
+            By.XPATH,
+            '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[1]/div[8]/div/div[1]/div/div[2]/div[1]/div[1]/div[2]/div/div/div/table/tbody[2]/tr[1]/td[7]/div/div/button'
+        ).click()
+        
+        
+
+        time.sleep(15)  # Aguarda o download
         rename_downloaded_file(download_dir)
 
     except Exception as e:
