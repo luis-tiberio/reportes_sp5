@@ -79,14 +79,17 @@ async def main():
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
-            #await login(page)
-            #await get_data(page, download_dir)
+            # await login(page)
+            # await get_data(page, download_dir)
+
             print("Chamando Prod...")
-            subprocess.run(["python", "download_prod.py"])
-            update_packing_google_sheets_prod()
+            await asyncio.to_thread(subprocess.run, ["python", "download_prod.py"])
+            await asyncio.to_thread(update_packing_google_sheets_prod)
+
             print("Chamando WS...")
-            subprocess.run(["python", "download_ws.py"])
-            update_packing_google_sheets_ws()
+            await asyncio.to_thread(subprocess.run, ["python", "download_ws.py"])
+            await asyncio.to_thread(update_packing_google_sheets_ws)
+
             print("Dados atualizados com sucesso.")
             await browser.close()
     except Exception as e:
