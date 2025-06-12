@@ -86,6 +86,7 @@ async def main():
             print("Chamando Prod...")
             await asyncio.to_thread(subprocess.run, ["python", "download_prod.py"])
             await asyncio.to_thread(update_packing_google_sheets_prod)
+            await asyncio.to_thread(update_packing_google_sheets_ws)
 
             """
             print("Chamando WS...")
