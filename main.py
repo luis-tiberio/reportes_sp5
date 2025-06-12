@@ -50,7 +50,7 @@ def update_packing_google_sheets_prod():
     except Exception as e:
         print(f"Erro durante o processo: {e}")
 
-def update_packing_google_sheets_prod_ws():
+def update_packing_google_sheets_ws():
     try:
         current_hour = datetime.datetime.now().strftime("%H")
         csv_file_name = f"WS-{current_hour}.csv"
