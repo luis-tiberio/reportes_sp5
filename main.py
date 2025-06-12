@@ -26,39 +26,11 @@ async def login(page):
     except Exception as e:
         print(f"Erro no login: {e}")
         raise
-"""
-async def get_data(page, download_dir):
-    try:
-        await page.goto("https://spx.shopee.com.br/#/staging-area-management/list/outbound")
-        await page.wait_for_timeout(5000)
-        await page.locator('//button[@type="button"]//span[contains(text(),"Export")]').click()
-        await page.wait_for_timeout(5000)
-        await page.wait_for_selector('(//span[contains(text(),"Export")])[2]', timeout=5000)
-        await page.click('(//span[contains(text(),"Export")])[2]')
-        await page.wait_for_timeout(5000)
-    except Exception as e:
-        print(f"Erro ao coletar dados: {e}")
-        raise
-"""
-def rename_downloaded_file(download_dir):
-    try:
-        files = os.listdir(download_dir)
-        files = [os.path.join(download_dir, f) for f in files if os.path.isfile(os.path.join(download_dir, f))]
-        newest_file = max(files, key=os.path.getctime)
-        current_hour = datetime.datetime.now().strftime("%H")
-        new_file_name = f"EXP-{current_hour}.csv"
-        new_file_path = os.path.join(download_dir, new_file_name)
-        if os.path.exists(new_file_path):
-            os.remove(new_file_path)
-        shutil.move(newest_file, new_file_path)
-        print(f"Arquivo salvo como: {new_file_path}")
-    except Exception as e:
-        print(f"Erro ao renomear o arquivo: {e}")
 
-def update_packing_google_sheets():
+def update_packing_google_sheets_prod():
     try:
         current_hour = datetime.datetime.now().strftime("%H")
-        csv_file_name = f"EXP-{current_hour}.csv"
+        csv_file_name = f"Prod-{current_hour}.csv"
         csv_folder_path = "/tmp"
         csv_file_path = os.path.join(csv_folder_path, csv_file_name)
         if not os.path.exists(csv_file_path):
@@ -67,8 +39,31 @@ def update_packing_google_sheets():
         scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         creds = ServiceAccountCredentials.from_json_keyfile_name("hxh.json", scope)
         client = gspread.authorize(creds)
-        sheet1 = client.open_by_url("https://docs.google.com/spreadsheets/d/1hoXYiyuArtbd2pxMECteTFSE75LdgvA2Vlb6gPpGJ-g/edit?gid=0#gid=0")
-        worksheet1 = sheet1.worksheet("Base SPX")
+        sheet1 = client.open_by_url("https://docs.google.com/spreadsheets/d/1uN6ILlmVgLc_Y7Tv3t0etliMwUAiZM1zC-jhXT3CsoU/edit?gid=13626729#gid=13626729")
+        worksheet1 = sheet1.worksheet("PROD")
+        df = pd.read_csv(csv_file_path)
+        df = df.fillna("")
+        worksheet1.clear()
+        worksheet1.update([df.columns.values.tolist()] + df.values.tolist())
+        print(f"Arquivo {csv_file_name} enviado com sucesso para a aba 'EXP'.")
+        time.sleep(5)
+    except Exception as e:
+        print(f"Erro durante o processo: {e}")
+
+def update_packing_google_sheets_prod_ws():
+    try:
+        current_hour = datetime.datetime.now().strftime("%H")
+        csv_file_name = f"WS-{current_hour}.csv"
+        csv_folder_path = "/tmp"
+        csv_file_path = os.path.join(csv_folder_path, csv_file_name)
+        if not os.path.exists(csv_file_path):
+            print(f"Arquivo {csv_file_path} não encontrado.")
+            return
+        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        creds = ServiceAccountCredentials.from_json_keyfile_name("hxh.json", scope)
+        client = gspread.authorize(creds)
+        sheet1 = client.open_by_url("https://docs.google.com/spreadsheets/d/1uN6ILlmVgLc_Y7Tv3t0etliMwUAiZM1zC-jhXT3CsoU/edit?gid=13626729#gid=13626729")
+        worksheet1 = sheet1.worksheet("WS T1")
         df = pd.read_csv(csv_file_path)
         df = df.fillna("")
         worksheet1.clear()
@@ -86,9 +81,12 @@ async def main():
             page = await browser.new_page()
             #await login(page)
             #await get_data(page, download_dir)
-            print("Chamando Selenium...")
-            subprocess.run(["python", "download.py"])
-            update_packing_google_sheets()
+            print("Chamando Prod...")
+            subprocess.run(["python", "download_prod.py"])
+            update_packing_google_sheets_prod()
+            print("Chamando WS...")
+            subprocess.run(["python", "download_ws.py"])
+            update_packing_google_sheets_ws()
             print("Dados atualizados com sucesso.")
             await browser.close()
     except Exception as e:
