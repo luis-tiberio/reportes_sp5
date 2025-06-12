@@ -113,11 +113,74 @@ def rename_downloaded_file(download_dir):
         print(f"Arquivo salvo como: {new_file_path}")
     except Exception as e:
         print(f"Erro ao renomear o arquivo: {e}")
+        
+def get_data_2(driver):
+    """Coleta os dados necessários e realiza o download."""
+    try:
+        driver.get("https://spx.shopee.com.br/#/workstation-assignment")
+        time.sleep(5)
+        driver.find_element(By.XPATH, '/html/body/div[1]/div/div[2]/div[2]/div/div/div[1]/div[1]/div/div/div/div/div[3]/span').click()
+        time.sleep(5)
 
+        # Inserir a data de ontem no campo de input
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y/%m/%d")
+        date_input = driver.find_element(By.XPATH, '/html/body/div[1]/div/div[2]/div[2]/div/div/div[1]/div[2]/div[2]/div/div/div/div[6]/form/div[1]/div/span/div/div/div[1]/input')
+        # Realizar o clique triplo para selecionar o conteúdo existente
+        actions = ActionChains(driver)
+        actions.click(date_input).click(date_input).click(date_input).perform()
+        #time.sleep(1)  # Pequena pausa para garantir a seleção
+
+        # Limpar o campo e inserir a data de ontem
+        date_input.send_keys(yesterday)  # Inserir a data formatada
+        time.sleep(5)  # Pequena pausa para garantir a inserção
+        
+        driver.find_element(By.XPATH, '/html/body/div[1]/div/div[2]/div[2]/div/div/div[1]/div[2]/div[2]/div/div/div/div[8]/div/button').click()
+        time.sleep(10)
+
+        driver.get("https://spx.shopee.com.br/#/taskCenter/exportTaskCenter")
+        time.sleep(15)
+
+
+        # 👉 Mantendo o botão de download exatamente como no seu código original:
+        
+        driver.find_element(
+            By.XPATH,
+            '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[1]/div[8]/div/div[1]/div/div[2]/div[1]/div[1]/div[2]/div/div/div/table/tbody[2]/tr[1]/td[7]/div/div/button'
+        ).click()
+        
+        
+
+        time.sleep(15)  # Aguarda o download
+        rename_downloaded_file_2(download_dir)
+
+    except Exception as e:
+        print(f"Erro ao coletar dados: {e}")
+        driver.quit()
+        raise
+
+def rename_downloaded_file_2(download_dir):
+    try:
+        files = [f for f in os.listdir(download_dir) if os.path.isfile(os.path.join(download_dir, f))]
+        files = [os.path.join(download_dir, f) for f in files]
+        newest_file = max(files, key=os.path.getctime)
+
+        current_hour = datetime.datetime.now().strftime("%H")
+        new_file_name = f"WS-{current_hour}.csv"
+        new_file_path = os.path.join(download_dir, new_file_name)
+
+        if os.path.exists(new_file_path):
+            os.remove(new_file_path)
+
+        shutil.move(newest_file, new_file_path)
+        print(f"Arquivo salvo como: {new_file_path}")
+    except Exception as e:
+        print(f"Erro ao renomear o arquivo: {e}")
+        
 def main():
     try:
         login(driver)
         get_data(driver)
+        get_data_2(driver)
         print("Download finalizado com sucesso.")
     except Exception as e:
         print(f"Erro: {e}")
