@@ -10,10 +10,10 @@ import os
 import shutil
 
 # Diretório de download para GitHub Actions
-download_dir = "/tmp"
+download_dir2 = "/ws"
 
 # Cria o diretório, se não existir
-os.makedirs(download_dir, exist_ok=True)
+os.makedirs(download_dir2, exist_ok=True)
 
 # Configurações do Chrome para ambiente headless do GitHub Actions
 chrome_options = Options()
@@ -24,7 +24,7 @@ chrome_options.add_argument("--window-size=1920,1080")
 
 # Configurações de download
 prefs = {
-    "download.default_directory": download_dir,
+    "download.default_directory": download_dir2,
     "download.prompt_for_download": False,
     "download.directory_upgrade": True,
     "safebrowsing.enabled": True
@@ -96,22 +96,22 @@ def get_data(driver):
         
 
         time.sleep(15)  # Aguarda o download
-        rename_downloaded_file(download_dir)
+        rename_downloaded_file(download_dir2)
 
     except Exception as e:
         print(f"Erro ao coletar dados: {e}")
         driver.quit()
         raise
 
-def rename_downloaded_file(download_dir):
+def rename_downloaded_file(download_dir2):
     try:
-        files = [f for f in os.listdir(download_dir) if os.path.isfile(os.path.join(download_dir, f))]
-        files = [os.path.join(download_dir, f) for f in files]
+        files = [f for f in os.listdir(download_dir2) if os.path.isfile(os.path.join(download_dir2, f))]
+        files = [os.path.join(download_dir2, f) for f in files]
         newest_file = max(files, key=os.path.getctime)
 
         current_hour = datetime.datetime.now().strftime("%H")
         new_file_name = f"WS-{current_hour}.csv"
-        new_file_path = os.path.join(download_dir, new_file_name)
+        new_file_path = os.path.join(download_dir2, new_file_name)
 
         if os.path.exists(new_file_path):
             os.remove(new_file_path)
