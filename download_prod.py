@@ -38,7 +38,7 @@ def login(driver):
     driver.get("https://spx.shopee.com.br/")
     try:
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, '//*[@placeholder="Ops ID"]')))
-        driver.find_element(By.XPATH, '//*[@placeholder="Ops ID"]').send_keys('Ops35683')
+        driver.find_element(By.XPATH, '//*[@placeholder="Ops ID"]').send_keys('Ops89726')
         driver.find_element(By.XPATH, '//*[@placeholder="Senha"]').send_keys('@Shopee123')
         WebDriverWait(driver, 15).until(
             EC.element_to_be_clickable((By.XPATH, '/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/form/div/div/button'))
@@ -61,12 +61,12 @@ def login(driver):
 
 def get_data(driver):
     try:
-        driver.get("https://spx.shopee.com.br/#/staging-area-management/list/outbound")
-        time.sleep(8)
-        driver.find_element(By.XPATH, '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div/div/span/span/button').click()
-        time.sleep(8)
-        driver.find_element(By.XPATH, '/html[1]/body[1]/div[3]/ul[1]/li[1]/span[1]/div[1]/div[1]/span[1]').click()
-        time.sleep(8)
+        driver.get("https://spx.shopee.com.br/#/dashboard/toProductivity?page_type=Outbound")
+        time.sleep(5)
+        driver.find_element(By.XPATH, '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[2]/div[2]/div/div[1]/div[2]/div[3]/span/span/span/button').click()
+        time.sleep(5)
+        driver.find_element(By.XPATH, '/html[1]/body[1]/span[1]/div[1]/div[1]/div[1]').click()
+        time.sleep(5)
 
         driver.get("https://spx.shopee.com.br/#/taskCenter/exportTaskCenter")
         time.sleep(15)
@@ -74,7 +74,7 @@ def get_data(driver):
         # 👉 Mantendo o botão de download exatamente como no seu código original:
         driver.find_element(
             By.XPATH,
-            '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[1]/div[8]/div/div[1]/div/div[2]/div[1]/div[1]/div[2]/div/div/div/table/tbody[2]/tr[1]/td[7]/div/div/button/span'
+            '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[1]/div[8]/div/div[1]/div/div[2]/div[1]/div[1]/div[2]/div/div/div/table/tbody[2]/tr[1]/td[7]/div/div/button/span/span'
         ).click()
 
         time.sleep(15)  # Aguarda o download
@@ -92,7 +92,7 @@ def rename_downloaded_file(download_dir):
         newest_file = max(files, key=os.path.getctime)
 
         current_hour = datetime.datetime.now().strftime("%H")
-        new_file_name = f"EXP-{current_hour}.csv"
+        new_file_name = f"Prod-{current_hour}.csv"
         new_file_path = os.path.join(download_dir, new_file_name)
 
         if os.path.exists(new_file_path):
