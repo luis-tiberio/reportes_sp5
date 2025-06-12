@@ -62,8 +62,10 @@ def login(driver):
 def get_data(driver):
     try:
         driver.get("https://spx.shopee.com.br/#/dashboard/toProductivity?page_type=Outbound")
-        time.sleep(5)
-        driver.find_element(By.XPATH, '//button[normalize-space()="Export"]').click()
+        time.sleep(8)
+        driver.find_element(By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/span[1]').click()
+        time.sleep(10)
+        driver.find_element(By.CSS_SELECTOR, 'ssc-button batch-actions-btn ssc-btn-type-primary').click()
         time.sleep(5)
         driver.find_element(By.XPATH, '/html[1]/body[1]/span[1]/div[1]/div[1]/div[1]').click()
         time.sleep(5)
