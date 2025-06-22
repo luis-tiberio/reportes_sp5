@@ -87,9 +87,12 @@ def get_data(driver):
             '//*[@id="fms-container"]/div[2]/div[2]/div/div/div/div[1]/div[8]/div/div[1]/div/div[2]/div[1]/div[1]/div[2]/div/div/div/table/tbody[2]/tr[1]/td[7]/div/div/button/span/span'
         ).click()
         """
-        botao_download = driver.find_element(By.XPATH, "(//button[.//span[normalize-space()='Download']])[1]")
-        botao_download.click()
-        
+        botoes = driver.find_elements(By.CLASS_NAME, "ssc-button")
+        for botao in botoes:
+            if "Download" in botao.text:
+                botao.click()
+                break
+
         
 
         time.sleep(15)  # Aguarda o download
@@ -153,9 +156,11 @@ def get_data_2(driver):
             '//*[@id="fms-container"]/div[2]/div[2]/div/div/div/div[1]/div[8]/div/div[1]/div/div[2]/div[1]/div[1]/div[2]/div/div/div/table/tbody[2]/tr[1]/td[7]/div/div/button/span/span'
         ).click()
         """
-        
-        botao_download = driver.find_element(By.XPATH, "(//button[.//span[normalize-space()='Download']])[1]")
-        botao_download.click()
+        botoes = driver.find_elements(By.CLASS_NAME, "ssc-button")
+        for botao in botoes:
+            if "Download" in botao.text:
+                botao.click()
+                break
 
         time.sleep(15)  # Aguarda o download
         rename_downloaded_file_2(download_dir)
