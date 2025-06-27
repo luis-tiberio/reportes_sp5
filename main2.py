@@ -174,8 +174,8 @@ async def main():
 
             # 👉 Botão de download 2
             async with page.expect_download() as download_info:
-                #await page.locator('xpath=/html/body/span/div/div[1]/div/span/div/div[2]/div[2]/div[1]/div/div[1]/div/div[1]/div[2]/button').click()
-                await page.get_by_role("button", name="Baixar").nth(0).click()
+                await page.locator('xpath=/html/body/span/div/div[1]/div/span/div/div[2]/div[2]/div[1]/div/div[1]/div/div[1]/div[2]/button').click()
+                #await page.get_by_role("button", name="Baixar").nth(0).click()
             download = await download_info.value
             download_path2 = os.path.join(DOWNLOAD_DIR, download.suggested_filename)
             await download.save_as(download_path2)
@@ -194,8 +194,8 @@ async def main():
 
             # 👉 Botão de download 3
             async with page.expect_download() as download_info:
-                #await page.locator('xpath=/html/body/span/div/div[1]/div/span/div/div[2]/div[2]/div[1]/div/div[1]/div/div[1]/div[2]/button').click()
-                await page.get_by_role("button", name="Baixar").nth(0).click()
+                await page.locator('xpath=/html/body/span/div/div[1]/div/span/div/div[2]/div[2]/div[1]/div/div[1]/div/div[1]/div[2]/button').click()
+                #await page.get_by_role("button", name="Baixar").nth(0).click()
             download = await download_info.value
             download_path3 = os.path.join(DOWNLOAD_DIR, download.suggested_filename)
             await download.save_as(download_path3)
