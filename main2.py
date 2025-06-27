@@ -120,8 +120,8 @@ async def main():
             # LOGIN
             await page.goto("https://spx.shopee.com.br/")
             await page.wait_for_selector('xpath=//*[@placeholder="Ops ID"]', timeout=15000)
-            await page.locator('xpath=//*[@placeholder="Ops ID"]').fill('Ops89726')
-            await page.locator('xpath=//*[@placeholder="Senha"]').fill('@Shopee123')
+            await page.locator('xpath=//*[@placeholder="Ops ID"]').fill('Ops10919')
+            await page.locator('xpath=//*[@placeholder="Senha"]').fill('@Shopee1234')
             await page.locator('xpath=/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/form/div/div/button').click()
             await page.wait_for_timeout(15000)
             try:
@@ -134,7 +134,7 @@ async def main():
             # NAVEGAÇÃO E DOWNLOAD 1
             await page.goto("https://spx.shopee.com.br/#/dashboard/toProductivity?page_type=Outbound")
             await page.wait_for_timeout(10000)
-            await page.get_by_role("button", name="Exportar").nth(1).click()
+            await page.get_by_role("button", name="Exportar").click()
             #await page.locator("//button[contains(normalize-space(),'Exportar')]").click()
             #await page.locator('xpath=/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[2]/div[3]/span[1]/span[1]/span[1]/button[1]').click()
             await page.wait_for_timeout(10000)
