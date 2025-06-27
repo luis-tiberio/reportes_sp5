@@ -134,12 +134,12 @@ async def main():
             # NAVEGAÇÃO E DOWNLOAD 1
             await page.goto("https://spx.shopee.com.br/#/dashboard/toProductivity?page_type=Outbound")
             await page.wait_for_timeout(10000)
+            await page.get_by_role("button", name="Exprotar").nth(0).click()
             await page.locator('xpath=/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[2]/div[2]/div/div[1]/div[2]/div[3]/span/span/span/button').click()
             await page.wait_for_timeout(10000)
             #await page.locator('xpath=//span/div/div/div[1]').click()
             await page.locator("div").filter(has_text=re.compile("^Exportar$")).click()
             await page.wait_for_timeout(10000)
-
 
             # 👉 Botão de download 1
             async with page.expect_download() as download_info:
