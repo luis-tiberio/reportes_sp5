@@ -136,7 +136,7 @@ async def main():
             await page.wait_for_timeout(10000)
             #await page.get_by_role("button", name="Exportar").click()
             #await page.locator("//button[contains(normalize-space(),'Exportar')]").click()
-            await page.locator('xpath=/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[2]/div[2]/div/div[1]/div[2]/div[3]/span/span/span[2]/button').click()
+            await page.locator('xpath=/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[2]/div[3]/span[1]/span[1]/span[1]/button[1]').click()
             await page.wait_for_timeout(10000)
             #await page.locator('xpath=//span/div/div/div[1]').click()
             await page.locator("div").filter(has_text=re.compile("^Exportar$")).click()
