@@ -1,6 +1,6 @@
 import asyncio
 from playwright.async_api import async_playwright
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import time
 import os
 import shutil
@@ -11,19 +11,16 @@ import re
 
 DOWNLOAD_DIR = "/tmp"
 
-# --- CONFIGURAÇÃO DAS PLANILHAS ---
-# Planilha onde sobem os dados brutos (CSV)
-ID_PLANILHA_DADOS = "1uN6ILlmVgLc_Y7Tv3t0etliMwUAiZM1zC-jhXT3CsoU"
-# Planilha INBOUND (separada nos seus exemplos)
-ID_PLANILHA_INBOUND = "1uN6ILlmVgLc_Y7Tv3t0etliMwUAiZM1zC-jhXT3CsoU" # Parece ser a mesma da PROD pelo seu link, mas mantive a lógica
+# --- CONFIGURAÇÃO DE FUSO HORÁRIO (BRASÍLIA UTC-3) ---
+# Isso garante que rode na hora certa no GitHub Actions
+FUSO_BR = timezone(timedelta(hours=-3))
 
-# NOVA: Planilha onde rodava o Script (Base Esteiras -> Base Script)
-# Extraí do link que você mandou: https://docs.google.com/spreadsheets/d/1lTL4DVBHPfG9OaSO_ePDsP0hWEm_tCnyNd4UqeVzLFI/edit
+# --- CONFIGURAÇÃO DAS PLANILHAS ---
+ID_PLANILHA_DADOS = "1uN6ILlmVgLc_Y7Tv3t0etliMwUAiZM1zC-jhXT3CsoU"
+ID_PLANILHA_INBOUND = "1uN6ILlmVgLc_Y7Tv3t0etliMwUAiZM1zC-jhXT3CsoU"
 ID_PLANILHA_DESTINO_SCRIPT = "1lTL4DVBHPfG9OaSO_ePDsP0hWEm_tCnyNd4UqeVzLFI"
 
-# --- MAPA DE CÓPIA DAS HORAS (CONVERTIDO DO SEU SCRIPT) ---
-# Formato: HORA: { 'cols': [('Origem', 'Destino'), ...], 'label': ('Celula', 'Texto') }
-# Sempre copia de 'Base Esteiras' para 'Base Script'
+# --- MAPA DE CÓPIA DAS HORAS ---
 MAPA_HORAS = {
     6:  {'cols': [('F', 'D'), ('D', 'C')], 'label': ('C1', 'Setor 6H')},
     7:  {'cols': [('G', 'F'), ('D', 'E')], 'label': ('E1', 'Setor 7H')},
@@ -34,7 +31,7 @@ MAPA_HORAS = {
     12: {'cols': [('L', 'P'), ('D', 'O')], 'label': ('O1', 'Setor 12H')},
     13: {'cols': [('M', 'R'), ('D', 'Q')], 'label': ('Q1', 'Setor 13H')},
     14: {'cols': [('N', 'T'), ('D', 'S')], 'label': ('S1', 'Setor 14H')},
-    15: {'cols': [('O', 'V'), ('D', 'U')], 'label': ('U1', 'Setor 15H')}, # Adicionei lógica estimada baseada no padrão, caso precise
+    15: {'cols': [('O', 'V'), ('D', 'U')], 'label': ('U1', 'Setor 15H')},
     16: {'cols': [('P', 'X'), ('D', 'W')], 'label': ('W1', 'Setor 16H')},
     17: {'cols': [('Q', 'Z'), ('D', 'Y')], 'label': ('Y1', 'Setor 17H')},
     18: {'cols': [('R', 'AB'), ('D', 'AA')], 'label': ('AA1', 'Setor 18H')},
@@ -59,10 +56,11 @@ def get_creds():
     ]
     return ServiceAccountCredentials.from_json_keyfile_name("hxh.json", scope)
 
-# --- FUNÇÕES DE RENOMEAR ---
+# --- FUNÇÕES DE RENOMEAR (COM CORREÇÃO DE HORA) ---
 def rename_downloaded_file(download_dir, download_path):
     try:
-        current_hour = datetime.now().strftime("%H")
+        # Pega a hora correta do Brasil
+        current_hour = datetime.now(FUSO_BR).strftime("%H")
         new_file_name = f"PROD-{current_hour}.csv"
         new_file_path = os.path.join(download_dir, new_file_name)
         if os.path.exists(new_file_path):
@@ -76,7 +74,7 @@ def rename_downloaded_file(download_dir, download_path):
     
 def rename_downloaded_file2(download_dir, download_path2):
     try:
-        current_hour = datetime.now().strftime("%H")
+        current_hour = datetime.now(FUSO_BR).strftime("%H")
         new_file_name2 = f"WS-{current_hour}.csv"
         new_file_path2 = os.path.join(download_dir, new_file_name2)
         if os.path.exists(new_file_path2):
@@ -90,7 +88,7 @@ def rename_downloaded_file2(download_dir, download_path2):
 
 def rename_downloaded_file3(download_dir, download_path3):
     try:
-        current_hour = datetime.now().strftime("%H")
+        current_hour = datetime.now(FUSO_BR).strftime("%H")
         new_file_name3 = f"IN-{current_hour}.csv"
         new_file_path3 = os.path.join(download_dir, new_file_name3)
         if os.path.exists(new_file_path3):
@@ -111,7 +109,8 @@ def update_packing_google_sheets(csv_file_path):
         worksheet1 = sheet1.worksheet("PROD")
         df = pd.read_csv(csv_file_path).fillna("")
         worksheet1.clear()
-        worksheet1.update([df.columns.values.tolist()] + df.values.tolist())
+        # Correção gspread v6: usar values=
+        worksheet1.update(values=[df.columns.values.tolist()] + df.values.tolist())
         print(f"Arquivo enviado com sucesso para a aba 'PROD'.")
         time.sleep(2)
     except Exception as e:
@@ -125,7 +124,7 @@ def update_packing_google_sheets2(csv_file_path2):
         worksheet1 = sheet1.worksheet("WS T1")
         df = pd.read_csv(csv_file_path2).fillna("")
         worksheet1.clear()
-        worksheet1.update([df.columns.values.tolist()] + df.values.tolist())
+        worksheet1.update(values=[df.columns.values.tolist()] + df.values.tolist())
         print(f"Arquivo enviado com sucesso para a aba 'WS T1'.")
         time.sleep(2)
     except Exception as e:
@@ -139,27 +138,20 @@ def update_packing_google_sheets3(csv_file_path3):
         worksheet1 = sheet1.worksheet("INBOUND")
         df = pd.read_csv(csv_file_path3).fillna("")
         worksheet1.clear()
-        worksheet1.update([df.columns.values.tolist()] + df.values.tolist())
+        worksheet1.update(values=[df.columns.values.tolist()] + df.values.tolist())
         print(f"Arquivo enviado com sucesso para a aba 'INBOUND'.")
         time.sleep(2)
     except Exception as e:
         print(f"Erro INBOUND: {e}")
 
-# --- NOVA LÓGICA: SCRIPT LOCAL PYTHON (Substitui o Apps Script) ---
+# --- LÓGICA LOCAL PYTHON (CORRIGIDA) ---
 
 def executar_logica_hora_local(horas_para_executar):
-    """
-    Realiza a cópia de colunas entre abas usando Python + Gspread.
-    Substitui as funções _6H, _7H, etc.
-    """
     print("\n--- Iniciando manipulação de colunas (Lógica Local) ---")
     try:
         client = gspread.authorize(get_creds())
-        
-        # Abre a planilha onde o script rodava
         spreadsheet = client.open_by_key(ID_PLANILHA_DESTINO_SCRIPT)
         
-        # Define as abas de origem e destino
         ws_origem = spreadsheet.worksheet('Base Esteiras')
         ws_destino = spreadsheet.worksheet('Base Script')
 
@@ -171,20 +163,24 @@ def executar_logica_hora_local(horas_para_executar):
                 print(f"⚠️ Nenhuma configuração mapeada para {hora}H. Pulando.")
                 continue
 
-            # 1. Copiar as colunas (Ex: F->D)
-            # O Python lê a coluna inteira da origem e cola no destino
+            # 1. Copiar Colunas
             for col_origem_letra, col_destino_letra in config['cols']:
-                # Pega os valores da coluna de origem (ex: 'F:F')
+                # Pega dados (lista de listas)
                 dados_coluna = ws_origem.get(f"{col_origem_letra}:{col_origem_letra}")
                 
-                # Cola na coluna de destino (ex: 'D:D')
-                ws_destino.update(f"{col_destino_letra}1", dados_coluna, value_input_option='USER_ENTERED')
+                # Cola dados usando 'values' e 'range_name' (Evita Warning e Erro)
+                ws_destino.update(
+                    values=dados_coluna,
+                    range_name=f"{col_destino_letra}1",
+                    value_input_option='USER_ENTERED'
+                )
                 print(f"   -> Copiado {col_origem_letra} para {col_destino_letra}")
-                time.sleep(1) # Pausa leve para não estourar cota de escrita rápida
+                time.sleep(1) 
 
-            # 2. Atualizar o label (Texto do Setor)
+            # 2. Atualizar Label (Célula Única)
             celula, texto = config['label']
-            ws_destino.update(celula, texto)
+            # Usa update_acell para célula única (Evita erro de Lista de Listas)
+            ws_destino.update_acell(celula, texto)
             print(f"   -> Label '{texto}' atualizado em {celula}")
             
         print("✅ Lógica local finalizada com sucesso.")
@@ -236,7 +232,9 @@ async def main():
             await page.locator('xpath=/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/span[1]').click()
             await page.wait_for_timeout(10000)
 
-            d1 = (datetime.now() - timedelta(days=1)).strftime("%Y/%m/%d")
+            # DATA DINÂMICA (FUSO CORRIGIDO)
+            d1 = (datetime.now(FUSO_BR) - timedelta(days=1)).strftime("%Y/%m/%d")
+            
             date_input = page.get_by_role("textbox", name="Escolha a data de início").nth(0)
             await date_input.wait_for(state="visible", timeout=10000)
             await date_input.click(force=True)
@@ -269,22 +267,21 @@ async def main():
             await download.save_as(download_path3)
             new_file_path3 = rename_downloaded_file3(DOWNLOAD_DIR, download_path3)
             
-            # --- UPLOAD E EXECUÇÃO DA LÓGICA ---
+            # ATUALIZAR GOOGLE SHEETS E EXECUTAR LÓGICA
             if new_file_path:
-                # 1. Sobe os dados (Abas: PROD, WS T1, INBOUND)
                 update_packing_google_sheets(new_file_path)
                 update_packing_google_sheets2(new_file_path2)
                 update_packing_google_sheets3(new_file_path3)
                 print("Dados atualizados com sucesso.")
                 
-                # 2. Define quais horas executar (Janela 10 min)
-                now = datetime.now()
-                current_hour = now.hour
-                current_minute = now.minute
+                # HORA CORRETA (Fuso BR)
+                now_br = datetime.now(FUSO_BR)
+                current_hour = now_br.hour
+                current_minute = now_br.minute
                 
                 horas_para_rodar = []
                 
-                # Lógica da Janela
+                # Janela de 10 min
                 if current_minute <= 10:
                     previous_hour = current_hour - 1
                     if previous_hour < 0: previous_hour = 23
@@ -293,7 +290,6 @@ async def main():
                 
                 horas_para_rodar.append(current_hour)
                 
-                # 3. Executa a manipulação de colunas LOCALMENTE via Python
                 executar_logica_hora_local(horas_para_rodar)
 
         except Exception as e:
