@@ -273,6 +273,8 @@ async def main():
                 update_packing_google_sheets2(new_file_path2)
                 update_packing_google_sheets3(new_file_path3)
                 print("Dados atualizados com sucesso.")
+
+                time.sleep(10)
                 
                 # HORA CORRETA (Fuso BR)
                 now_br = datetime.now(FUSO_BR)
