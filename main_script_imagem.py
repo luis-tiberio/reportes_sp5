@@ -374,7 +374,7 @@ async def main():
     
     # Janela de execução: Entre 07 e 13 minutos
     JANELA_INICIO = 7
-    JANELA_FIM = 13
+    JANELA_FIM = 12
     
     if JANELA_INICIO <= minuto_atual <= JANELA_FIM:
         print(f"✅ Dentro da janela ({JANELA_INICIO}-{JANELA_FIM} min). Gerando imagem...")
