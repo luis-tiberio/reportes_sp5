@@ -28,6 +28,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           playwright install chromium
+          pip install playwright pillow
 
       - name: Executar o script
-        run: xvfb-run python main_script.py
+        # run: xvfb-run python main_script.py
+        env:
+          LOOKER_COOKIES: ${{ secrets.LOOKER_COOKIES }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+        run: xvfb-run python main_script_imagem.py
+        
+      - name: Upload do Print (Evidência)
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprovante-atualizacao
+          path: looker_evidence.png
+          retention-days: 1 # Dias de armazenamento da imagem
