@@ -12,7 +12,6 @@ import re
 DOWNLOAD_DIR = "/tmp"
 
 # --- CONFIGURAÇÃO DE FUSO HORÁRIO (BRASÍLIA UTC-3) ---
-# Isso garante que rode na hora certa no GitHub Actions
 FUSO_BR = timezone(timedelta(hours=-3))
 
 # --- CONFIGURAÇÃO DAS PLANILHAS ---
@@ -56,10 +55,9 @@ def get_creds():
     ]
     return ServiceAccountCredentials.from_json_keyfile_name("hxh.json", scope)
 
-# --- FUNÇÕES DE RENOMEAR (COM CORREÇÃO DE HORA) ---
+# --- FUNÇÕES DE RENOMEAR ---
 def rename_downloaded_file(download_dir, download_path):
     try:
-        # Pega a hora correta do Brasil
         current_hour = datetime.now(FUSO_BR).strftime("%H")
         new_file_name = f"PROD-{current_hour}.csv"
         new_file_path = os.path.join(download_dir, new_file_name)
@@ -100,7 +98,7 @@ def rename_downloaded_file3(download_dir, download_path3):
         print(f"Erro ao renomear o arquivo: {e}")
         return None
 
-# --- FUNÇÕES DE UPLOAD DE DADOS ---
+# --- FUNÇÕES DE UPLOAD ---
 def update_packing_google_sheets(csv_file_path):
     try:
         if not os.path.exists(csv_file_path): return
@@ -109,7 +107,6 @@ def update_packing_google_sheets(csv_file_path):
         worksheet1 = sheet1.worksheet("PROD")
         df = pd.read_csv(csv_file_path).fillna("")
         worksheet1.clear()
-        # Correção gspread v6: usar values=
         worksheet1.update(values=[df.columns.values.tolist()] + df.values.tolist())
         print(f"Arquivo enviado com sucesso para a aba 'PROD'.")
         time.sleep(2)
@@ -144,8 +141,7 @@ def update_packing_google_sheets3(csv_file_path3):
     except Exception as e:
         print(f"Erro INBOUND: {e}")
 
-# --- LÓGICA LOCAL PYTHON (CORRIGIDA) ---
-
+# --- LÓGICA LOCAL PYTHON ---
 def executar_logica_hora_local(horas_para_executar):
     print("\n--- Iniciando manipulação de colunas (Lógica Local) ---")
     try:
@@ -163,12 +159,8 @@ def executar_logica_hora_local(horas_para_executar):
                 print(f"⚠️ Nenhuma configuração mapeada para {hora}H. Pulando.")
                 continue
 
-            # 1. Copiar Colunas
             for col_origem_letra, col_destino_letra in config['cols']:
-                # Pega dados (lista de listas)
                 dados_coluna = ws_origem.get(f"{col_origem_letra}:{col_origem_letra}")
-                
-                # Cola dados usando 'values' e 'range_name' (Evita Warning e Erro)
                 ws_destino.update(
                     values=dados_coluna,
                     range_name=f"{col_destino_letra}1",
@@ -177,9 +169,7 @@ def executar_logica_hora_local(horas_para_executar):
                 print(f"   -> Copiado {col_origem_letra} para {col_destino_letra}")
                 time.sleep(1) 
 
-            # 2. Atualizar Label (Célula Única)
             celula, texto = config['label']
-            # Usa update_acell para célula única (Evita erro de Lista de Listas)
             ws_destino.update_acell(celula, texto)
             print(f"   -> Label '{texto}' atualizado em {celula}")
             
@@ -196,7 +186,8 @@ async def main():
         context = await browser.new_context(accept_downloads=True)
         page = await context.new_page()
         try:
-            # LOGIN
+            # 1. LOGIN
+            print("🔑 Realizando Login...")
             await page.goto("https://spx.shopee.com.br/")
             await page.wait_for_selector('xpath=//*[@placeholder="Ops ID"]', timeout=15000)
             await page.locator('xpath=//*[@placeholder="Ops ID"]').fill('Ops10919')
@@ -209,8 +200,23 @@ async def main():
                 print("Nenhum pop-up foi encontrado.")
                 await page.keyboard.press("Escape")
 
-            
-            # DOWNLOAD 1
+            # =================================================================
+            # 2. VERIFICAÇÃO DE HORÁRIO (ANTES DE BAIXAR)
+            # =================================================================
+            print("⏳ Verificando se o horário é seguro para Download (evitar 0-2min)...")
+            while True:
+                now_br = datetime.now(FUSO_BR)
+                minute_check = now_br.minute
+                
+                if minute_check <= 2:
+                    print(f"🛑 Horário de virada detectado ({now_br.strftime('%H:%M')}). Bases podem estar vazias. Aguardando 30s...")
+                    time.sleep(30)
+                else:
+                    print(f"✅ Horário seguro ({now_br.strftime('%H:%M')}). Iniciando Downloads...")
+                    break
+            # =================================================================
+
+            # 3. DOWNLOAD 1
             await page.goto("https://spx.shopee.com.br/#/dashboard/toProductivity?page_type=Outbound")
             await page.wait_for_timeout(10000)
             await page.locator("//button[contains(normalize-space(),'Exportar')]").click()
@@ -225,14 +231,13 @@ async def main():
             await download.save_as(download_path)
             new_file_path = rename_downloaded_file(DOWNLOAD_DIR, download_path)
 
-            # DOWNLOAD 2
+            # 4. DOWNLOAD 2
             await page.goto("https://spx.shopee.com.br/#/workstation-assignment")
             await page.wait_for_timeout(10000)
             await page.keyboard.press('Escape');
             await page.locator('xpath=/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/span[1]').click()
             await page.wait_for_timeout(10000)
 
-            # DATA DINÂMICA (FUSO CORRIGIDO)
             d1 = (datetime.now(FUSO_BR) - timedelta(days=1)).strftime("%Y/%m/%d")
             
             date_input = page.get_by_role("textbox", name="Escolha a data de início").nth(0)
@@ -252,7 +257,7 @@ async def main():
             await download.save_as(download_path2)
             new_file_path2 = rename_downloaded_file2(DOWNLOAD_DIR, download_path2)            
 
-            # DOWNLOAD 3
+            # 5. DOWNLOAD 3
             await page.goto("https://spx.shopee.com.br/#/dashboard/toProductivity")
             await page.wait_for_timeout(10000)
             await page.locator('xpath=/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[2]/div[1]/div/div[1]/div[2]/div[3]/span/span/span/button').click()
@@ -267,23 +272,25 @@ async def main():
             await download.save_as(download_path3)
             new_file_path3 = rename_downloaded_file3(DOWNLOAD_DIR, download_path3)
             
-            # ATUALIZAR GOOGLE SHEETS E EXECUTAR LÓGICA
+            # 6. ATUALIZAR SHEETS E EXECUTAR LÓGICA LOCAL
             if new_file_path:
                 update_packing_google_sheets(new_file_path)
                 update_packing_google_sheets2(new_file_path2)
                 update_packing_google_sheets3(new_file_path3)
                 print("Dados atualizados com sucesso.")
-
+                
+                print("⏳ Aguardando 10 segundos para garantir a sincronização dos dados...")
                 time.sleep(10)
                 
-                # HORA CORRETA (Fuso BR)
+                # Definição das horas a rodar (Baseado no horário BR já validado)
                 now_br = datetime.now(FUSO_BR)
                 current_hour = now_br.hour
                 current_minute = now_br.minute
                 
                 horas_para_rodar = []
                 
-                # Janela de 10 min
+                # Como já esperamos o tempo seguro (min > 2), esta lógica
+                # vai capturar o momento correto (entre min 3 e 10).
                 if current_minute <= 10:
                     previous_hour = current_hour - 1
                     if previous_hour < 0: previous_hour = 23
