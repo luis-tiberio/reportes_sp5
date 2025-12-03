@@ -1,0 +1,387 @@
+import asyncio
+import os
+import shutil
+import time
+import re
+import json
+import base64
+import requests
+import gspread
+import pandas as pd
+from datetime import datetime, timedelta, timezone
+from playwright.async_api import async_playwright
+from oauth2client.service_account import ServiceAccountCredentials
+from PIL import Image, ImageChops
+
+# ==============================================================================
+# CONFIGURAÇÕES GERAIS
+# ==============================================================================
+
+DOWNLOAD_DIR = "/tmp"
+SCREENSHOT_PATH = "looker_evidence.png"
+
+# Fuso Horário (Brasília UTC-3)
+FUSO_BR = timezone(timedelta(hours=-3))
+
+# IDs das Planilhas
+ID_PLANILHA_DADOS = "1uN6ILlmVgLc_Y7Tv3t0etliMwUAiZM1zC-jhXT3CsoU"
+ID_PLANILHA_INBOUND = "1uN6ILlmVgLc_Y7Tv3t0etliMwUAiZM1zC-jhXT3CsoU"
+ID_PLANILHA_DESTINO_SCRIPT = "1lTL4DVBHPfG9OaSO_ePDsP0hWEm_tCnyNd4UqeVzLFI"
+
+# URLs do Looker
+REPORT_URL_T1 = "https://lookerstudio.google.com/s/jrComoFYUHY"   # 06h–14h
+REPORT_URL_T2 = "https://lookerstudio.google.com/s/sS1xru1_0LU"   # 14h–21h
+REPORT_URL_T3 = "https://lookerstudio.google.com/s/nps1V7Dtudo"   # demais horários
+
+# Webhook
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL") or "https://openapi.seatalk.io/webhook/group/x9t3byIZTe-IYt4ye5kUFQ"
+
+# Mapa de Colunas (Lógica das Horas)
+MAPA_HORAS = {
+    6:  {'cols': [('F', 'D'), ('D', 'C')], 'label': ('C1', 'Setor 6H')},
+    7:  {'cols': [('G', 'F'), ('D', 'E')], 'label': ('E1', 'Setor 7H')},
+    8:  {'cols': [('H', 'H'), ('D', 'G')], 'label': ('G1', 'Setor 8H')},
+    9:  {'cols': [('I', 'J'), ('D', 'I')], 'label': ('I1', 'Setor 9H')},
+    10: {'cols': [('J', 'L'), ('D', 'K')], 'label': ('K1', 'Setor 10H')},
+    11: {'cols': [('K', 'N'), ('D', 'M')], 'label': ('M1', 'Setor 11H')},
+    12: {'cols': [('L', 'P'), ('D', 'O')], 'label': ('O1', 'Setor 12H')},
+    13: {'cols': [('M', 'R'), ('D', 'Q')], 'label': ('Q1', 'Setor 13H')},
+    14: {'cols': [('N', 'T'), ('D', 'S')], 'label': ('S1', 'Setor 14H')},
+    15: {'cols': [('O', 'V'), ('D', 'U')], 'label': ('U1', 'Setor 15H')},
+    16: {'cols': [('P', 'X'), ('D', 'W')], 'label': ('W1', 'Setor 16H')},
+    17: {'cols': [('Q', 'Z'), ('D', 'Y')], 'label': ('Y1', 'Setor 17H')},
+    18: {'cols': [('R', 'AB'), ('D', 'AA')], 'label': ('AA1', 'Setor 18H')},
+    19: {'cols': [('S', 'AD'), ('D', 'AC')], 'label': ('AC1', 'Setor 19H')},
+    20: {'cols': [('T', 'AF'), ('D', 'AE')], 'label': ('AE1', 'Setor 20H')},
+    21: {'cols': [('U', 'AH'), ('D', 'AG')], 'label': ('AG1', 'Setor 21H')},
+    22: {'cols': [('V', 'AJ'), ('D', 'AI')], 'label': ('AI1', 'Setor 22H')},
+    23: {'cols': [('W', 'AL'), ('D', 'AK')], 'label': ('AK1', 'Setor 23H')},
+    0:  {'cols': [('X', 'AN'), ('D', 'AM')], 'label': ('AM1', 'Setor 00H')},
+    1:  {'cols': [('Y', 'AP'), ('D', 'AO')], 'label': ('AO1', 'Setor 01H')},
+    2:  {'cols': [('Z', 'AR'), ('D', 'AQ')], 'label': ('AQ1', 'Setor 02H')},
+    3:  {'cols': [('AA', 'AT'), ('D', 'AS')], 'label': ('AS1', 'Setor 03H')},
+    4:  {'cols': [('AB', 'AV'), ('D', 'AU')], 'label': ('AU1', 'Setor 04H')},
+    5:  {'cols': [('AC', 'AX'), ('D', 'AW')], 'label': ('AW1', 'Setor 05H')},
+}
+
+# ==============================================================================
+# FUNÇÕES AUXILIARES (Dados, Arquivos, Imagens, Webhook)
+# ==============================================================================
+
+def get_creds():
+    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    return ServiceAccountCredentials.from_json_keyfile_name("hxh.json", scope)
+
+def rename_downloaded_file(download_dir, download_path, prefix):
+    try:
+        current_hour = datetime.now(FUSO_BR).strftime("%H")
+        new_file_name = f"{prefix}-{current_hour}.csv"
+        new_file_path = os.path.join(download_dir, new_file_name)
+        if os.path.exists(new_file_path):
+            os.remove(new_file_path)
+        shutil.move(download_path, new_file_path)
+        print(f"Arquivo salvo como: {new_file_path}")
+        return new_file_path
+    except Exception as e:
+        print(f"Erro ao renomear {prefix}: {e}")
+        return None
+
+def update_sheet(csv_path, sheet_id, tab_name):
+    try:
+        if not os.path.exists(csv_path): return
+        client = gspread.authorize(get_creds())
+        sheet = client.open_by_key(sheet_id)
+        ws = sheet.worksheet(tab_name)
+        df = pd.read_csv(csv_path).fillna("")
+        ws.clear()
+        ws.update(values=[df.columns.values.tolist()] + df.values.tolist())
+        print(f"Upload OK: {tab_name}")
+        time.sleep(2)
+    except Exception as e:
+        print(f"Erro no upload {tab_name}: {e}")
+
+def executar_logica_hora_local(horas_para_executar):
+    print("\n--- Iniciando manipulação de colunas (Lógica Local) ---")
+    try:
+        client = gspread.authorize(get_creds())
+        spreadsheet = client.open_by_key(ID_PLANILHA_DESTINO_SCRIPT)
+        ws_origem = spreadsheet.worksheet('Base Esteiras')
+        ws_destino = spreadsheet.worksheet('Base Script')
+
+        for hora in horas_para_executar:
+            print(f"⚙️ Processando lógica da hora: {hora}H...")
+            config = MAPA_HORAS.get(hora)
+            if not config: continue
+
+            for col_origem_letra, col_destino_letra in config['cols']:
+                dados = ws_origem.get(f"{col_origem_letra}:{col_origem_letra}")
+                ws_destino.update(values=dados, range_name=f"{col_destino_letra}1", value_input_option='USER_ENTERED')
+                time.sleep(1)
+
+            celula, texto = config['label']
+            ws_destino.update_acell(celula, texto)
+            print(f"   -> Label '{texto}' atualizado.")
+            
+        print("✅ Lógica local finalizada.")
+    except Exception as e:
+        print(f"❌ Erro na lógica local: {e}")
+
+def enviar_webhook_texto(mensagem):
+    try:
+        requests.post(WEBHOOK_URL, json={"tag": "text", "text": {"format": 1, "content": mensagem}})
+    except Exception as e: print(f"Erro webhook texto: {e}")
+
+def enviar_imagem_base64(caminho_imagem):
+    try:
+        with open(caminho_imagem, "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode('utf-8')
+        requests.post(WEBHOOK_URL, json={"tag": "image", "image_base64": {"content": img_b64}})
+        print("Imagem enviada com sucesso.")
+    except Exception as e: print(f"Erro webhook imagem: {e}")
+
+def smart_crop_padded(image_path):
+    try:
+        im = Image.open(image_path)
+        bg = Image.new(im.mode, im.size, im.getpixel((10, 10)))
+        diff = ImageChops.difference(im, bg)
+        diff = ImageChops.add(diff, diff, 2.0, 0)
+        bbox = diff.getbbox()
+        if bbox:
+            left, top, right, bottom = bbox
+            final_box = (max(0, left-20), top, min(im.width, right+20), min(im.height, bottom+50))
+            im.crop(final_box).save(image_path)
+            print("Recorte inteligente aplicado.")
+    except Exception as e: print(f"Erro no crop: {e}")
+
+def escolher_report_por_turno():
+    now = datetime.now(FUSO_BR)
+    minutos_do_dia = now.hour * 60 + now.minute
+    
+    if 6 * 60 <= minutos_do_dia <= 14 * 60 + 5:
+        return REPORT_URL_T1, "T1 (06:00–13:59)"
+    elif 14 * 60 + 6 <= minutos_do_dia <= 21 * 60 + 59:
+        return REPORT_URL_T2, "T2 (14:00–21:59)"
+    else:
+        return REPORT_URL_T3, "T3 (22:00–05:59)"
+
+# ==============================================================================
+# FUNÇÃO ASSÍNCRONA PARA EVIDÊNCIA (LOOKER)
+# ==============================================================================
+
+async def gerar_e_enviar_evidencia():
+    print("\n--- Iniciando Módulo de Evidência (Looker) ---")
+    
+    auth_json = os.environ.get("LOOKER_COOKIES")
+    if not auth_json:
+        print("⚠️ LOOKER_COOKIES não encontrado. Pulando evidência.")
+        return
+
+    report_url, turno_label = escolher_report_por_turno()
+    print(f"Alvo: {turno_label}")
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        # Cria contexto com cookies salvos
+        context = await browser.new_context(
+            storage_state=json.loads(auth_json),
+            viewport={'width': 2200, 'height': 3000}
+        )
+        page = await context.new_page()
+        page.set_default_timeout(90000)
+
+        await page.goto(report_url)
+        print("Carregando relatório...")
+        # Aguarda carregamento inicial
+        await page.wait_for_load_state("domcontentloaded")
+        await asyncio.sleep(20)
+
+        # Refresh (Editar -> Leitura)
+        try:
+            edit_btn = page.get_by_role("button", name="Editar", exact=True).or_(page.get_by_role("button", name="Edit", exact=True))
+            if await edit_btn.count() > 0 and await edit_btn.first.is_visible():
+                await edit_btn.first.click()
+                print("> Refresh...")
+                await asyncio.sleep(15)
+                leitura_btn = page.get_by_role("button", name="Leitura").or_(page.get_by_text("Leitura")).or_(page.get_by_label("Modo de leitura"))
+                if await leitura_btn.count() > 0:
+                    await leitura_btn.first.click()
+                    await asyncio.sleep(15)
+        except Exception as e: print(f"Erro refresh: {e}")
+
+        # Limpeza CSS
+        await page.evaluate("""() => {
+            const selectors = ['header', '.ga-sidebar', '#align-lens-view', '.bottomContent', '.paginationPanel', '.feature-content-header', '.lego-report-header', '.header-container', 'div[role="banner"]', '.page-navigation-panel'];
+            selectors.forEach(sel => { document.querySelectorAll(sel).forEach(el => el.style.display = 'none'); });
+            document.body.style.backgroundColor = '#eeeeee';
+        }""")
+        await asyncio.sleep(5)
+
+        # Screenshot
+        used_container = False
+        container = None
+        
+        # Busca container nos frames
+        for frame in page.frames:
+            cand = frame.locator("div.ng2-canvas-container.grid")
+            if await cand.count() > 0:
+                container = cand.first
+                break
+        
+        if container:
+            try:
+                await container.scroll_into_view_if_needed()
+                await asyncio.sleep(2)
+                await container.screenshot(path=SCREENSHOT_PATH)
+                used_container = True
+                print("Screenshot do container salvo.")
+            except:
+                await page.screenshot(path=SCREENSHOT_PATH, full_page=True)
+        else:
+            await page.screenshot(path=SCREENSHOT_PATH, full_page=True)
+
+        await browser.close()
+
+    if not used_container:
+        smart_crop_padded(SCREENSHOT_PATH)
+
+    enviar_webhook_texto("Segue reporte operacional: (reporte junto com a atualização TESTE)")
+    enviar_imagem_base64(SCREENSHOT_PATH)
+
+
+# ==============================================================================
+# MAIN (ORQUESTRA TUDO)
+# ==============================================================================
+
+async def main():       
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    
+    # ---------------------------------------------------------
+    # PARTE 1: DADOS (Sempre Roda)
+    # ---------------------------------------------------------
+    print(">>> FASE 1: ATUALIZAÇÃO DE DADOS <<<")
+    
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False, args=["--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080"])
+        context = await browser.new_context(accept_downloads=True)
+        page = await context.new_page()
+        try:
+            # LOGIN
+            print("🔑 Login Shopee...")
+            await page.goto("https://spx.shopee.com.br/")
+            await page.wait_for_selector('xpath=//*[@placeholder="Ops ID"]', timeout=15000)
+            await page.locator('xpath=//*[@placeholder="Ops ID"]').fill('Ops10919')
+            await page.locator('xpath=//*[@placeholder="Senha"]').fill('@Shopee1234')
+            await page.locator('xpath=/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/form/div/div/button').click()
+            await page.wait_for_timeout(15000)
+            try:
+                await page.locator('.ssc-dialog-close').click(timeout=5000)
+            except: pass
+
+            # SEGURANÇA 0-2 MIN
+            print("⏳ Verificando horário seguro (0-2 min)...")
+            while True:
+                if datetime.now(FUSO_BR).minute <= 2:
+                    print("🛑 Aguardando virada do horário seguro (30s)...")
+                    time.sleep(30)
+                else:
+                    break
+
+            # DOWNLOAD 1
+            print("Baixando Produtividade...")
+            await page.goto("https://spx.shopee.com.br/#/dashboard/toProductivity?page_type=Outbound")
+            await page.wait_for_timeout(10000)
+            await page.locator("//button[contains(normalize-space(),'Exportar')]").click()
+            await page.wait_for_timeout(5000)
+            await page.locator("div").filter(has_text=re.compile("^Exportar$")).click()
+            async with page.expect_download() as dl_info:
+                await page.get_by_role("button", name="Baixar").nth(0).click()
+            file1 = await dl_info.value
+            path1 = os.path.join(DOWNLOAD_DIR, file1.suggested_filename)
+            await file1.save_as(path1)
+            final_path1 = rename_downloaded_file(DOWNLOAD_DIR, path1, "PROD")
+
+            # DOWNLOAD 2
+            print("Baixando WS Assignment...")
+            await page.goto("https://spx.shopee.com.br/#/workstation-assignment")
+            await page.wait_for_timeout(8000)
+            await page.keyboard.press('Escape') # Fecha modal se houver
+            
+            # Navegação do filtro de data
+            # (Simplificada para brevidade, mantendo lógica original)
+            try:
+                await page.locator('xpath=/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/span[1]').click()
+                await page.wait_for_timeout(2000)
+                d1 = (datetime.now(FUSO_BR) - timedelta(days=1)).strftime("%Y/%m/%d")
+                date_input = page.get_by_role("textbox", name="Escolha a data de início").nth(0)
+                await date_input.click(force=True)
+                await date_input.fill(d1)
+                await page.locator('xpath=/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[6]/form[1]/div[4]/button[1]').click()
+                await page.locator('xpath=/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[8]/div[1]/button[1]').click()
+                await page.wait_for_timeout(5000)
+            except: print("Erro na navegação do DL 2")
+
+            async with page.expect_download() as dl_info:
+                await page.locator('xpath=/html/body/span/div/div[1]/div/span/div/div[2]/div[2]/div[1]/div/div[1]/div/div[1]/div[2]/button').click()
+            file2 = await dl_info.value
+            path2 = os.path.join(DOWNLOAD_DIR, file2.suggested_filename)
+            await file2.save_as(path2)
+            final_path2 = rename_downloaded_file(DOWNLOAD_DIR, path2, "WS")
+
+            # DOWNLOAD 3
+            print("Baixando Produtividade 2...")
+            await page.goto("https://spx.shopee.com.br/#/dashboard/toProductivity")
+            await page.wait_for_timeout(8000)
+            await page.locator('xpath=/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[2]/div[1]/div/div[1]/div[2]/div[3]/span/span/span/button').click()
+            await page.wait_for_timeout(2000)
+            await page.locator("div").filter(has_text=re.compile("^Exportar$")).click()
+            async with page.expect_download() as dl_info:
+                await page.locator('xpath=/html/body/span/div/div[1]/div/span/div/div[2]/div[2]/div[1]/div/div[1]/div/div[1]/div[2]/button').click()
+            file3 = await dl_info.value
+            path3 = os.path.join(DOWNLOAD_DIR, file3.suggested_filename)
+            await file3.save_as(path3)
+            final_path3 = rename_downloaded_file(DOWNLOAD_DIR, path3, "IN")
+
+        except Exception as e:
+            print(f"Erro no fluxo de download: {e}")
+        finally:
+            await browser.close()
+
+    # UPLOAD E LÓGICA LOCAL
+    if final_path1:
+        update_sheet(final_path1, ID_PLANILHA_DADOS, "PROD")
+        update_sheet(final_path2, ID_PLANILHA_DADOS, "WS T1")
+        update_sheet(final_path3, ID_PLANILHA_INBOUND, "INBOUND")
+        print("Sincronizando (10s)...")
+        time.sleep(10)
+
+        # Definição das horas
+        now_br = datetime.now(FUSO_BR)
+        horas = [now_br.hour]
+        if now_br.minute <= 10:
+            prev = now_br.hour - 1
+            horas.insert(0, 23 if prev < 0 else prev)
+        
+        executar_logica_hora_local(horas)
+
+    # ---------------------------------------------------------
+    # PARTE 2: IMAGEM/EVIDÊNCIA (Condicional)
+    # ---------------------------------------------------------
+    print("\n>>> FASE 2: VERIFICAÇÃO DE EVIDÊNCIA <<<")
+    
+    # Checagem atualizada do horário
+    now_check = datetime.now(FUSO_BR)
+    minuto_atual = now_check.minute
+    
+    # Janela de execução: Entre 07 e 13 minutos
+    JANELA_INICIO = 7
+    JANELA_FIM = 13
+    
+    if JANELA_INICIO <= minuto_atual <= JANELA_FIM:
+        print(f"✅ Dentro da janela ({JANELA_INICIO}-{JANELA_FIM} min). Gerando imagem...")
+        await gerar_e_enviar_evidencia()
+    else:
+        print(f"🚫 Fora da janela de imagem ({minuto_atual} min). A imagem só é gerada entre {JANELA_INICIO} e {JANELA_FIM} da hora.")
+        print("Script finalizado apenas com atualização de dados.")
+
+if __name__ == "__main__":
+    asyncio.run(main())
