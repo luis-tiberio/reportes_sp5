@@ -157,9 +157,9 @@ def escolher_report_por_turno():
     now = datetime.now(FUSO_BR)
     minutos_do_dia = now.hour * 60 + now.minute
     
-    if 6 * 60 <= minutos_do_dia <= 14 * 60 + 5:
+    if 6 * 60 <= minutos_do_dia <= 14 * 60 + 15:
         return REPORT_URL_T1, "T1 (06:00–13:59)"
-    elif 14 * 60 + 6 <= minutos_do_dia <= 21 * 60 + 59:
+    elif 14 * 60 + 6 <= minutos_do_dia <= 22 * 60 + 15:
         return REPORT_URL_T2, "T2 (14:00–21:59)"
     else:
         return REPORT_URL_T3, "T3 (22:00–05:59)"
