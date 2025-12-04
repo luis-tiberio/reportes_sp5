@@ -255,6 +255,11 @@ async def gerar_e_enviar_evidencia():
 async def main():       
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     
+    # --- CORREÇÃO 1: Inicializa variáveis para evitar erro "UnboundLocalError" ---
+    final_path1 = None
+    final_path2 = None
+    final_path3 = None
+    
     # ---------------------------------------------------------
     # PARTE 1: DADOS (Sempre Roda)
     # ---------------------------------------------------------
@@ -268,11 +273,13 @@ async def main():
             # LOGIN
             print("🔑 Login Shopee...")
             await page.goto("https://spx.shopee.com.br/")
-            await page.wait_for_selector('xpath=//*[@placeholder="Ops ID"]', timeout=15000)
+            await page.wait_for_selector('xpath=//*[@placeholder="Ops ID"]', timeout=30000) # Aumentei timeout login
             await page.locator('xpath=//*[@placeholder="Ops ID"]').fill('Ops10919')
             await page.locator('xpath=//*[@placeholder="Senha"]').fill('@Shopee1234')
             await page.locator('xpath=/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/form/div/div/button').click()
-            await page.wait_for_timeout(15000)
+            await page.wait_for_timeout(10000) # Tempo para login processar
+            
+            # Tenta fechar popup se aparecer
             try:
                 await page.locator('.ssc-dialog-close').click(timeout=5000)
             except: pass
@@ -289,10 +296,21 @@ async def main():
             # DOWNLOAD 1
             print("Baixando Produtividade...")
             await page.goto("https://spx.shopee.com.br/#/dashboard/toProductivity?page_type=Outbound")
-            await page.wait_for_timeout(10000)
-            await page.locator("//button[contains(normalize-space(),'Exportar')]").click()
+            
+            # --- CORREÇÃO 2: Espera explícita pelo botão Exportar ---
+            # Espera até 60 segundos pelo botão aparecer
+            export_btn_xpath = "//button[contains(normalize-space(),'Exportar')]"
+            try:
+                await page.wait_for_selector(export_btn_xpath, state="visible", timeout=60000)
+                await page.locator(export_btn_xpath).click()
+            except Exception as e:
+                print(f"⚠️ Erro ao clicar em Exportar (tentativa 1): {e}")
+                # Tentativa de recuperação: recarregar ou tentar outro seletor se necessário
+                raise e
+
             await page.wait_for_timeout(5000)
             await page.locator("div").filter(has_text=re.compile("^Exportar$")).click()
+            
             async with page.expect_download() as dl_info:
                 await page.get_by_role("button", name="Baixar").nth(0).click()
             file1 = await dl_info.value
@@ -304,10 +322,8 @@ async def main():
             print("Baixando WS Assignment...")
             await page.goto("https://spx.shopee.com.br/#/workstation-assignment")
             await page.wait_for_timeout(8000)
-            await page.keyboard.press('Escape') # Fecha modal se houver
+            await page.keyboard.press('Escape') 
             
-            # Navegação do filtro de data
-            # (Simplificada para brevidade, mantendo lógica original)
             try:
                 await page.locator('xpath=/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/span[1]').click()
                 await page.wait_for_timeout(2000)
@@ -330,8 +346,12 @@ async def main():
             # DOWNLOAD 3
             print("Baixando Produtividade 2...")
             await page.goto("https://spx.shopee.com.br/#/dashboard/toProductivity")
-            await page.wait_for_timeout(8000)
-            await page.locator('xpath=/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[2]/div[1]/div/div[1]/div[2]/div[3]/span/span/span/button').click()
+            
+            # --- CORREÇÃO 3: Mesmo tratamento para o segundo botão de exportar ---
+            btn3_xpath = '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[2]/div[1]/div/div[1]/div[2]/div[3]/span/span/span/button'
+            await page.wait_for_selector(btn3_xpath, state="visible", timeout=60000)
+            await page.locator(btn3_xpath).click()
+            
             await page.wait_for_timeout(2000)
             await page.locator("div").filter(has_text=re.compile("^Exportar$")).click()
             async with page.expect_download() as dl_info:
@@ -343,11 +363,14 @@ async def main():
 
         except Exception as e:
             print(f"Erro no fluxo de download: {e}")
+            # O script não vai crashar aqui, ele vai imprimir o erro e seguir para o 'finally'
         finally:
             await browser.close()
 
     # UPLOAD E LÓGICA LOCAL
-    if final_path1:
+    # Aqui a correção 1 faz efeito: se deu erro lá em cima, final_path1 é None
+    # e o código apenas ignora este bloco sem dar erro fatal.
+    if final_path1 and final_path2 and final_path3:
         update_sheet(final_path1, ID_PLANILHA_DADOS, "PROD")
         update_sheet(final_path2, ID_PLANILHA_DADOS, "WS T1")
         update_sheet(final_path3, ID_PLANILHA_INBOUND, "INBOUND")
@@ -362,6 +385,8 @@ async def main():
             horas.insert(0, 23 if prev < 0 else prev)
         
         executar_logica_hora_local(horas)
+    else:
+        print("⚠️ Upload cancelado pois um ou mais arquivos não foram baixados.")
 
     # ---------------------------------------------------------
     # PARTE 2: IMAGEM/EVIDÊNCIA (Condicional)
@@ -374,14 +399,14 @@ async def main():
     
     # Janela de execução: Entre 07 e 13 minutos
     JANELA_INICIO = 7
-    JANELA_FIM = 12
+    JANELA_FIM = 13
     
     if JANELA_INICIO <= minuto_atual <= JANELA_FIM:
         print(f"✅ Dentro da janela ({JANELA_INICIO}-{JANELA_FIM} min). Gerando imagem...")
         await gerar_e_enviar_evidencia()
     else:
         print(f"🚫 Fora da janela de imagem ({minuto_atual} min). A imagem só é gerada entre {JANELA_INICIO} e {JANELA_FIM} da hora.")
-        print("Script finalizado apenas com atualização de dados.")
-
+        print("Script finalizado.")
+        
 if __name__ == "__main__":
     asyncio.run(main())
