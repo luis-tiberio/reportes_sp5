@@ -65,7 +65,7 @@ MAPA_HORAS = {
 }
 
 # ==============================================================================
-# FUNÇÕES AUXILIARES (Dados, Arquivos, Imagens, Webhook)
+# FUNÇÕES AUXILIARES
 # ==============================================================================
 
 def get_creds():
@@ -181,7 +181,6 @@ async def gerar_e_enviar_evidencia():
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        # Cria contexto com cookies salvos
         context = await browser.new_context(
             storage_state=json.loads(auth_json),
             viewport={'width': 2200, 'height': 3000}
@@ -191,11 +190,9 @@ async def gerar_e_enviar_evidencia():
 
         await page.goto(report_url)
         print("Carregando relatório...")
-        # Aguarda carregamento inicial
         await page.wait_for_load_state("domcontentloaded")
         await asyncio.sleep(20)
 
-        # Refresh (Editar -> Leitura)
         try:
             edit_btn = page.get_by_role("button", name="Editar", exact=True).or_(page.get_by_role("button", name="Edit", exact=True))
             if await edit_btn.count() > 0 and await edit_btn.first.is_visible():
@@ -208,7 +205,6 @@ async def gerar_e_enviar_evidencia():
                     await asyncio.sleep(15)
         except Exception as e: print(f"Erro refresh: {e}")
 
-        # Limpeza CSS
         await page.evaluate("""() => {
             const selectors = ['header', '.ga-sidebar', '#align-lens-view', '.bottomContent', '.paginationPanel', '.feature-content-header', '.lego-report-header', '.header-container', 'div[role="banner"]', '.page-navigation-panel'];
             selectors.forEach(sel => { document.querySelectorAll(sel).forEach(el => el.style.display = 'none'); });
@@ -216,11 +212,8 @@ async def gerar_e_enviar_evidencia():
         }""")
         await asyncio.sleep(5)
 
-        # Screenshot
         used_container = False
         container = None
-        
-        # Busca container nos frames
         for frame in page.frames:
             cand = frame.locator("div.ng2-canvas-container.grid")
             if await cand.count() > 0:
@@ -255,9 +248,11 @@ async def gerar_e_enviar_evidencia():
 async def main():       
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     
-    # ---------------------------------------------------------
-    # PARTE 1: DADOS (Sempre Roda)
-    # ---------------------------------------------------------
+    # Inicializa variáveis para evitar erro "UnboundLocalError"
+    final_path1 = None
+    final_path2 = None
+    final_path3 = None
+    
     print(">>> FASE 1: ATUALIZAÇÃO DE DADOS <<<")
     
     async with async_playwright() as p:
@@ -265,19 +260,17 @@ async def main():
         context = await browser.new_context(accept_downloads=True)
         page = await context.new_page()
         try:
-            # LOGIN
             print("🔑 Login Shopee...")
             await page.goto("https://spx.shopee.com.br/")
-            await page.wait_for_selector('xpath=//*[@placeholder="Ops ID"]', timeout=15000)
+            await page.wait_for_selector('xpath=//*[@placeholder="Ops ID"]', timeout=30000)
             await page.locator('xpath=//*[@placeholder="Ops ID"]').fill('Ops10919')
             await page.locator('xpath=//*[@placeholder="Senha"]').fill('@Shopee1234')
             await page.locator('xpath=/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/form/div/div/button').click()
-            await page.wait_for_timeout(15000)
-            try:
-                await page.locator('.ssc-dialog-close').click(timeout=5000)
+            await page.wait_for_timeout(10000)
+            
+            try: await page.locator('.ssc-dialog-close').click(timeout=5000)
             except: pass
 
-            # SEGURANÇA 0-2 MIN
             print("⏳ Verificando horário seguro (0-2 min)...")
             while True:
                 if datetime.now(FUSO_BR).minute <= 2:
@@ -289,10 +282,19 @@ async def main():
             # DOWNLOAD 1
             print("Baixando Produtividade...")
             await page.goto("https://spx.shopee.com.br/#/dashboard/toProductivity?page_type=Outbound")
-            await page.wait_for_timeout(10000)
-            await page.locator("//button[contains(normalize-space(),'Exportar')]").click()
+            
+            # Correção: Uso explícito de 'xpath=' para evitar erro de parser CSS
+            export_btn_xpath = "//button[contains(normalize-space(),'Exportar')]"
+            try:
+                await page.wait_for_selector(f"xpath={export_btn_xpath}", state="visible", timeout=60000)
+                await page.locator(f"xpath={export_btn_xpath}").click()
+            except Exception as e:
+                print(f"⚠️ Erro ao clicar em Exportar (1): {e}")
+                raise e
+
             await page.wait_for_timeout(5000)
             await page.locator("div").filter(has_text=re.compile("^Exportar$")).click()
+            
             async with page.expect_download() as dl_info:
                 await page.get_by_role("button", name="Baixar").nth(0).click()
             file1 = await dl_info.value
@@ -304,10 +306,8 @@ async def main():
             print("Baixando WS Assignment...")
             await page.goto("https://spx.shopee.com.br/#/workstation-assignment")
             await page.wait_for_timeout(8000)
-            await page.keyboard.press('Escape') # Fecha modal se houver
+            await page.keyboard.press('Escape') 
             
-            # Navegação do filtro de data
-            # (Simplificada para brevidade, mantendo lógica original)
             try:
                 await page.locator('xpath=/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/span[1]').click()
                 await page.wait_for_timeout(2000)
@@ -330,8 +330,12 @@ async def main():
             # DOWNLOAD 3
             print("Baixando Produtividade 2...")
             await page.goto("https://spx.shopee.com.br/#/dashboard/toProductivity")
-            await page.wait_for_timeout(8000)
-            await page.locator('xpath=/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[2]/div[1]/div/div[1]/div[2]/div[3]/span/span/span/button').click()
+            
+            # Correção: Uso explícito de 'xpath=' para evitar erro de parser CSS
+            btn3_xpath = '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[2]/div[1]/div/div[1]/div[2]/div[3]/span/span/span/button'
+            await page.wait_for_selector(f"xpath={btn3_xpath}", state="visible", timeout=60000)
+            await page.locator(f"xpath={btn3_xpath}").click()
+            
             await page.wait_for_timeout(2000)
             await page.locator("div").filter(has_text=re.compile("^Exportar$")).click()
             async with page.expect_download() as dl_info:
@@ -347,7 +351,7 @@ async def main():
             await browser.close()
 
     # UPLOAD E LÓGICA LOCAL
-    if final_path1:
+    if final_path1 and final_path2 and final_path3:
         update_sheet(final_path1, ID_PLANILHA_DADOS, "PROD")
         update_sheet(final_path2, ID_PLANILHA_DADOS, "WS T1")
         update_sheet(final_path3, ID_PLANILHA_INBOUND, "INBOUND")
@@ -362,26 +366,24 @@ async def main():
             horas.insert(0, 23 if prev < 0 else prev)
         
         executar_logica_hora_local(horas)
+    else:
+        print("⚠️ Upload cancelado pois um ou mais arquivos não foram baixados.")
 
-    # ---------------------------------------------------------
-    # PARTE 2: IMAGEM/EVIDÊNCIA (Condicional)
-    # ---------------------------------------------------------
     print("\n>>> FASE 2: VERIFICAÇÃO DE EVIDÊNCIA <<<")
     
-    # Checagem atualizada do horário
     now_check = datetime.now(FUSO_BR)
     minuto_atual = now_check.minute
     
-    # Janela de execução: Entre 07 e 13 minutos
+    # JANELA DE EVIDÊNCIA: 7 a 13
     JANELA_INICIO = 7
-    JANELA_FIM = 13
+    JANELA_FIM = 11
     
     if JANELA_INICIO <= minuto_atual <= JANELA_FIM:
         print(f"✅ Dentro da janela ({JANELA_INICIO}-{JANELA_FIM} min). Gerando imagem...")
         await gerar_e_enviar_evidencia()
     else:
         print(f"🚫 Fora da janela de imagem ({minuto_atual} min). A imagem só é gerada entre {JANELA_INICIO} e {JANELA_FIM} da hora.")
-        print("Script finalizado apenas com atualização de dados.")
+        print("Script finalizado.")
 
 if __name__ == "__main__":
     asyncio.run(main())
