@@ -40,7 +40,7 @@ WEBHOOK_URL = os.environ.get("WEBHOOK_URL") or "https://openapi.seatalk.io/webho
 # --- NOVO: CONFIGURAÇÃO DO SEGUNDO PRINT ---
 # Substitua abaixo pelos links reais do segundo relatório
 REPORT_URL_EXTRA = "https://lookerstudio.google.com/s/pg9Ho6yKSdk"
-WEBHOOK_URL_EXTRA = "https://openapi.seatalk.io/webhook/group/6968RfmNTh-rKeNcNevEkg"
+WEBHOOK_URL_EXTRA = os.environ.get("WEBHOOK_URL_EXTRA") or "https://openapi.seatalk.io/webhook/group/6968RfmNTh-rKeNcNevEkg"
 # -------------------------------------------
 
 # Mapa de Colunas (Lógica das Horas)
