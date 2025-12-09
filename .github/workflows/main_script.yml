@@ -37,9 +37,12 @@ jobs:
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
         run: xvfb-run python main_script_imagem.py
         
-      - name: Upload do Print (Evidência)
+      - name: Upload das Evidências (Prints)
+        if: always()  # Garante que roda mesmo se o script der erro antes
         uses: actions/upload-artifact@v4
         with:
-          name: comprovante-atualizacao
-          path: looker_evidence.png
+          name: comprovantes-looker
+          path: |
+            looker_evidence.png
+            looker_evidence_extra.png
           retention-days: 1 # Dias de armazenamento da imagem
