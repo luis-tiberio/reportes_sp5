@@ -19,7 +19,7 @@ from PIL import Image, ImageChops
 
 DOWNLOAD_DIR = "/tmp"
 SCREENSHOT_PATH = "looker_evidence.png"
-SCREENSHOT_PATH_EXTRA = "looker_evidence_extra.png" # Nome para o segundo print
+SCREENSHOT_PATH_EXTRA = "looker_evidence_extra.png" 
 
 # Fuso Horário (Brasília UTC-3)
 FUSO_BR = timezone(timedelta(hours=-3))
@@ -39,7 +39,7 @@ WEBHOOK_URL = os.environ.get("WEBHOOK_URL") or "https://openapi.seatalk.io/webho
 
 # --- CONFIGURAÇÃO DO SEGUNDO PRINT (EXTRA) ---
 REPORT_URL_EXTRA = "https://lookerstudio.google.com/s/pg9Ho6yKSdk"
-WEBHOOK_URL_EXTRA = "https://openapi.seatalk.io/webhook/group/6968RfmNTh-rKeNcNevEkg"
+WEBHOOK_URL_EXTRA = os.environ.get("WEBHOOK_URL_EXTRA") or "https://openapi.seatalk.io/webhook/group/6968RfmNTh-rKeNcNevEkg"
 # ---------------------------------------------
 
 # Mapa de Colunas (Lógica das Horas)
@@ -106,7 +106,7 @@ def update_sheet(csv_path, sheet_id, tab_name):
     except Exception as e:
         print(f"Erro no upload {tab_name}: {e}")
 
-# --- FUNÇÃO DE LIMPEZA (Adaptada do GAS myFunction1) ---
+# --- FUNÇÃO DE LIMPEZA ---
 def limpar_base_se_necessario():
     now = datetime.now(FUSO_BR)
     # Roda somente às 06h, entre os minutos 12 e 16
@@ -116,16 +116,11 @@ def limpar_base_se_necessario():
             client = gspread.authorize(get_creds())
             spreadsheet = client.open_by_key(ID_PLANILHA_DESTINO_SCRIPT)
             ws_destino = spreadsheet.worksheet('Base Script')
-            
-            # Limpa de C2 até AX (preservando cabeçalho A1:AX1 e colunas A/B)
             ws_destino.batch_clear(["C2:AX"]) 
-            
             print("✅ 'Base Script' (C2:AX) limpa com sucesso!")
             time.sleep(2)
         except Exception as e:
             print(f"❌ Erro ao limpar a base: {e}")
-    else:
-        pass # Não é horário de limpeza, segue normal
 # ----------------------------------------------
 
 def executar_logica_hora_local(horas_para_executar):
@@ -156,15 +151,17 @@ def executar_logica_hora_local(horas_para_executar):
 
 def enviar_webhook_generico(mensagem, url_webhook):
     try:
+        print(f"Disparando Webhook Texto para: ...{url_webhook[-8:]}")
         requests.post(url_webhook, json={"tag": "text", "text": {"format": 1, "content": mensagem}})
     except Exception as e: print(f"Erro webhook texto: {e}")
 
 def enviar_imagem_generico(caminho_imagem, url_webhook):
     try:
+        print(f"Disparando Webhook Imagem para: ...{url_webhook[-8:]}")
         with open(caminho_imagem, "rb") as f:
             img_b64 = base64.b64encode(f.read()).decode('utf-8')
         requests.post(url_webhook, json={"tag": "image", "image_base64": {"content": img_b64}})
-        print(f"Imagem enviada com sucesso para webhook final ...{url_webhook[-5:]}")
+        print(f"Imagem enviada com sucesso!")
     except Exception as e: print(f"Erro webhook imagem: {e}")
 
 def smart_crop_padded(image_path):
@@ -197,68 +194,68 @@ def escolher_report_por_turno():
 # ==============================================================================
 
 async def capturar_looker(url_report, path_salvar, auth_json):
-    """Função reutilizável para abrir looker e tirar print"""
-    if "COLOQUE_AQUI" in url_report:
-        print("⚠️ URL do Looker extra não configurada.")
-        return False, False
-
+    print(f"Acessando Looker: {url_report}")
+    
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(
-            storage_state=json.loads(auth_json),
-            viewport={'width': 2200, 'height': 3000}
-        )
-        page = await context.new_page()
-        page.set_default_timeout(90000)
-
-        print(f"Acessando Looker: {url_report}")
-        await page.goto(url_report)
-        await page.wait_for_load_state("domcontentloaded")
-        await asyncio.sleep(20)
-
-        # Tenta Refresh
         try:
-            edit_btn = page.get_by_role("button", name="Editar", exact=True).or_(page.get_by_role("button", name="Edit", exact=True))
-            if await edit_btn.count() > 0 and await edit_btn.first.is_visible():
-                await edit_btn.first.click()
-                print("> Refresh...")
-                await asyncio.sleep(15)
-                leitura_btn = page.get_by_role("button", name="Leitura").or_(page.get_by_text("Leitura")).or_(page.get_by_label("Modo de leitura"))
-                if await leitura_btn.count() > 0:
-                    await leitura_btn.first.click()
-                    await asyncio.sleep(15)
-        except Exception: pass
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context(
+                storage_state=json.loads(auth_json),
+                viewport={'width': 2200, 'height': 3000}
+            )
+            page = await context.new_page()
+            page.set_default_timeout(90000)
 
-        # Limpeza CSS
-        await page.evaluate("""() => {
-            const selectors = ['header', '.ga-sidebar', '#align-lens-view', '.bottomContent', '.paginationPanel', '.feature-content-header', '.lego-report-header', '.header-container', 'div[role="banner"]', '.page-navigation-panel'];
-            selectors.forEach(sel => { document.querySelectorAll(sel).forEach(el => el.style.display = 'none'); });
-            document.body.style.backgroundColor = '#eeeeee';
-        }""")
-        await asyncio.sleep(5)
+            await page.goto(url_report)
+            await page.wait_for_load_state("domcontentloaded")
+            await asyncio.sleep(20)
 
-        used_container = False
-        container = None
-        for frame in page.frames:
-            cand = frame.locator("div.ng2-canvas-container.grid")
-            if await cand.count() > 0:
-                container = cand.first
-                break
-        
-        if container:
+            # Tenta Refresh
             try:
-                await container.scroll_into_view_if_needed()
-                await asyncio.sleep(2)
-                await container.screenshot(path=path_salvar)
-                used_container = True
-                print(f"Screenshot salvo em {path_salvar}")
-            except:
-                await page.screenshot(path=path_salvar, full_page=True)
-        else:
-            await page.screenshot(path=path_salvar, full_page=True)
+                edit_btn = page.get_by_role("button", name="Editar", exact=True).or_(page.get_by_role("button", name="Edit", exact=True))
+                if await edit_btn.count() > 0 and await edit_btn.first.is_visible():
+                    await edit_btn.first.click()
+                    print("> Refresh...")
+                    await asyncio.sleep(15)
+                    leitura_btn = page.get_by_role("button", name="Leitura").or_(page.get_by_text("Leitura")).or_(page.get_by_label("Modo de leitura"))
+                    if await leitura_btn.count() > 0:
+                        await leitura_btn.first.click()
+                        await asyncio.sleep(15)
+            except Exception: pass
 
-        await browser.close()
-        return True, used_container
+            # Limpeza CSS
+            await page.evaluate("""() => {
+                const selectors = ['header', '.ga-sidebar', '#align-lens-view', '.bottomContent', '.paginationPanel', '.feature-content-header', '.lego-report-header', '.header-container', 'div[role="banner"]', '.page-navigation-panel'];
+                selectors.forEach(sel => { document.querySelectorAll(sel).forEach(el => el.style.display = 'none'); });
+                document.body.style.backgroundColor = '#eeeeee';
+            }""")
+            await asyncio.sleep(5)
+
+            used_container = False
+            container = None
+            for frame in page.frames:
+                cand = frame.locator("div.ng2-canvas-container.grid")
+                if await cand.count() > 0:
+                    container = cand.first
+                    break
+            
+            if container:
+                try:
+                    await container.scroll_into_view_if_needed()
+                    await asyncio.sleep(2)
+                    await container.screenshot(path=path_salvar)
+                    used_container = True
+                    print(f"Screenshot salvo em {path_salvar}")
+                except:
+                    await page.screenshot(path=path_salvar, full_page=True)
+            else:
+                await page.screenshot(path=path_salvar, full_page=True)
+
+            await browser.close()
+            return True, used_container
+        except Exception as e:
+            print(f"❌ Erro ao capturar Looker ({url_report}): {e}")
+            return False, False
 
 async def gerar_e_enviar_evidencia_principal():
     print("\n--- Evidência Principal ---")
@@ -268,8 +265,6 @@ async def gerar_e_enviar_evidencia_principal():
         return
 
     report_url, turno_label = escolher_report_por_turno()
-    print(f"Alvo: {turno_label}")
-
     sucesso, used_container = await capturar_looker(report_url, SCREENSHOT_PATH, auth_json)
     
     if sucesso:
@@ -281,6 +276,7 @@ async def gerar_e_enviar_evidencia_extra():
     print("\n--- Evidência Extra (Segundo Print) ---")
     auth_json = os.environ.get("LOOKER_COOKIES")
     
+    # Executa direto sem verificações de string
     sucesso, used_container = await capturar_looker(REPORT_URL_EXTRA, SCREENSHOT_PATH_EXTRA, auth_json)
     
     if sucesso:
@@ -403,7 +399,6 @@ async def main():
         print("Sincronizando (10s)...")
         time.sleep(10)
 
-        # 1. Executa limpeza se estiver no horário 06:12-06:16
         limpar_base_se_necessario()
 
         # Definição das horas
@@ -424,12 +419,24 @@ async def main():
     
     # JANELA DE EVIDÊNCIA: 7 a 13
     JANELA_INICIO = 7
-    JANELA_FIM = 11
+    JANELA_FIM = 13
     
     if JANELA_INICIO <= minuto_atual <= JANELA_FIM:
         print(f"✅ Dentro da janela ({JANELA_INICIO}-{JANELA_FIM} min).")
+        
+        # 1. Print Principal
         await gerar_e_enviar_evidencia_principal()
-        await gerar_e_enviar_evidencia_extra()
+        
+        # Pausa para garantir que o navegador liberou recursos
+        print("Aguardando 5s para iniciar segundo print...")
+        time.sleep(5)
+        
+        # 2. Print Extra (AGORA COM TRY/CATCH para debug)
+        try:
+            await gerar_e_enviar_evidencia_extra()
+        except Exception as e:
+            print(f"❌ Erro fatal ao rodar Evidência Extra: {e}")
+            
     else:
         print(f"🚫 Fora da janela de imagem ({minuto_atual} min). A imagem só é gerada entre {JANELA_INICIO} e {JANELA_FIM} da hora.")
         print("Script finalizado.")
