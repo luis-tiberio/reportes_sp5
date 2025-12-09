@@ -419,7 +419,7 @@ async def main():
     
     # JANELA DE EVIDÊNCIA: 7 a 13
     JANELA_INICIO = 7
-    JANELA_FIM = 13
+    JANELA_FIM = 11
     
     if JANELA_INICIO <= minuto_atual <= JANELA_FIM:
         print(f"✅ Dentro da janela ({JANELA_INICIO}-{JANELA_FIM} min).")
