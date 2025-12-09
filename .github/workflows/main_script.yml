@@ -35,6 +35,7 @@ jobs:
         env:
           LOOKER_COOKIES: ${{ secrets.LOOKER_COOKIES }}
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          WEBHOOK_URL_EXTRA: ${{ secrets.WEBHOOK_URL_EXTRA }}
         run: xvfb-run python main_script_imagem.py
         
       - name: Upload das Evidências (Prints)
