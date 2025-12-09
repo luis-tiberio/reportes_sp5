@@ -19,6 +19,7 @@ from PIL import Image, ImageChops
 
 DOWNLOAD_DIR = "/tmp"
 SCREENSHOT_PATH = "looker_evidence.png"
+SCREENSHOT_PATH_EXTRA = "looker_evidence_extra.png" # Nome para o segundo print
 
 # Fuso Horário (Brasília UTC-3)
 FUSO_BR = timezone(timedelta(hours=-3))
@@ -28,13 +29,19 @@ ID_PLANILHA_DADOS = "1uN6ILlmVgLc_Y7Tv3t0etliMwUAiZM1zC-jhXT3CsoU"
 ID_PLANILHA_INBOUND = "1uN6ILlmVgLc_Y7Tv3t0etliMwUAiZM1zC-jhXT3CsoU"
 ID_PLANILHA_DESTINO_SCRIPT = "1lTL4DVBHPfG9OaSO_ePDsP0hWEm_tCnyNd4UqeVzLFI"
 
-# URLs do Looker
+# URLs do Looker (Turnos)
 REPORT_URL_T1 = "https://lookerstudio.google.com/s/jrComoFYUHY"   # 06h–14h
 REPORT_URL_T2 = "https://lookerstudio.google.com/s/sS1xru1_0LU"   # 14h–21h
 REPORT_URL_T3 = "https://lookerstudio.google.com/s/nps1V7Dtudo"   # demais horários
 
-# Webhook
+# Webhook Principal
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL") or "https://openapi.seatalk.io/webhook/group/ks-dZEaLQt-1xCOAp54hLQ"
+
+# --- NOVO: CONFIGURAÇÃO DO SEGUNDO PRINT ---
+# Substitua abaixo pelos links reais do segundo relatório
+REPORT_URL_EXTRA = "https://lookerstudio.google.com/s/pg9Ho6yKSdk"
+WEBHOOK_URL_EXTRA = "https://openapi.seatalk.io/webhook/group/6968RfmNTh-rKeNcNevEkg"
+# -------------------------------------------
 
 # Mapa de Colunas (Lógica das Horas)
 MAPA_HORAS = {
@@ -100,6 +107,30 @@ def update_sheet(csv_path, sheet_id, tab_name):
     except Exception as e:
         print(f"Erro no upload {tab_name}: {e}")
 
+# --- NOVA FUNÇÃO DE LIMPEZA (06:12 - 06:16) ---
+def limpar_base_se_necessario():
+    now = datetime.now(FUSO_BR)
+    # Verifica se é 06 horas E se os minutos estão entre 12 e 16
+    if now.hour == 6 and 12 <= now.minute <= 16:
+        print(f"🧹 Horário de limpeza detectado ({now.strftime('%H:%M')}). Iniciando limpeza da Base Script...")
+        try:
+            client = gspread.authorize(get_creds())
+            spreadsheet = client.open_by_key(ID_PLANILHA_DESTINO_SCRIPT)
+            ws_destino = spreadsheet.worksheet('Base Script')
+            
+            # Limpa de C2 até AX (preserva cabeçalho)
+            # batch_clear é eficiente para limpar grandes intervalos
+            ws_destino.batch_clear(["C2:AX"]) 
+            
+            print("✅ 'Base Script' (C2:AX) limpa com sucesso!")
+            time.sleep(2)
+        except Exception as e:
+            print(f"❌ Erro ao limpar a base: {e}")
+    else:
+        # Se não for o horário, segue sem limpar
+        pass
+# ----------------------------------------------
+
 def executar_logica_hora_local(horas_para_executar):
     print("\n--- Iniciando manipulação de colunas (Lógica Local) ---")
     try:
@@ -126,17 +157,17 @@ def executar_logica_hora_local(horas_para_executar):
     except Exception as e:
         print(f"❌ Erro na lógica local: {e}")
 
-def enviar_webhook_texto(mensagem):
+def enviar_webhook_generico(mensagem, url_webhook):
     try:
-        requests.post(WEBHOOK_URL, json={"tag": "text", "text": {"format": 1, "content": mensagem}})
+        requests.post(url_webhook, json={"tag": "text", "text": {"format": 1, "content": mensagem}})
     except Exception as e: print(f"Erro webhook texto: {e}")
 
-def enviar_imagem_base64(caminho_imagem):
+def enviar_imagem_generico(caminho_imagem, url_webhook):
     try:
         with open(caminho_imagem, "rb") as f:
             img_b64 = base64.b64encode(f.read()).decode('utf-8')
-        requests.post(WEBHOOK_URL, json={"tag": "image", "image_base64": {"content": img_b64}})
-        print("Imagem enviada com sucesso.")
+        requests.post(url_webhook, json={"tag": "image", "image_base64": {"content": img_b64}})
+        print(f"Imagem enviada com sucesso para: ...{url_webhook[-10:]}")
     except Exception as e: print(f"Erro webhook imagem: {e}")
 
 def smart_crop_padded(image_path):
@@ -165,19 +196,14 @@ def escolher_report_por_turno():
         return REPORT_URL_T3, "T3 (22:00–05:59)"
 
 # ==============================================================================
-# FUNÇÃO ASSÍNCRONA PARA EVIDÊNCIA (LOOKER)
+# FUNÇÃO PARA CAPTURAR EVIDÊNCIA (GENÉRICA)
 # ==============================================================================
 
-async def gerar_e_enviar_evidencia():
-    print("\n--- Iniciando Módulo de Evidência (Looker) ---")
-    
-    auth_json = os.environ.get("LOOKER_COOKIES")
-    if not auth_json:
-        print("⚠️ LOOKER_COOKIES não encontrado. Pulando evidência.")
-        return
-
-    report_url, turno_label = escolher_report_por_turno()
-    print(f"Alvo: {turno_label}")
+async def capturar_looker(url_report, path_salvar, auth_json):
+    """Função reutilizável para abrir looker e tirar print"""
+    if "COLOQUE_AQUI" in url_report:
+        print("⚠️ URL do Looker extra não configurada.")
+        return False
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -188,11 +214,12 @@ async def gerar_e_enviar_evidencia():
         page = await context.new_page()
         page.set_default_timeout(90000)
 
-        await page.goto(report_url)
-        print("Carregando relatório...")
+        print(f"Acessando Looker: {url_report}")
+        await page.goto(url_report)
         await page.wait_for_load_state("domcontentloaded")
         await asyncio.sleep(20)
 
+        # Tenta Refresh
         try:
             edit_btn = page.get_by_role("button", name="Editar", exact=True).or_(page.get_by_role("button", name="Edit", exact=True))
             if await edit_btn.count() > 0 and await edit_btn.first.is_visible():
@@ -203,8 +230,9 @@ async def gerar_e_enviar_evidencia():
                 if await leitura_btn.count() > 0:
                     await leitura_btn.first.click()
                     await asyncio.sleep(15)
-        except Exception as e: print(f"Erro refresh: {e}")
+        except Exception: pass
 
+        # Limpeza CSS
         await page.evaluate("""() => {
             const selectors = ['header', '.ga-sidebar', '#align-lens-view', '.bottomContent', '.paginationPanel', '.feature-content-header', '.lego-report-header', '.header-container', 'div[role="banner"]', '.page-navigation-panel'];
             selectors.forEach(sel => { document.querySelectorAll(sel).forEach(el => el.style.display = 'none'); });
@@ -224,21 +252,44 @@ async def gerar_e_enviar_evidencia():
             try:
                 await container.scroll_into_view_if_needed()
                 await asyncio.sleep(2)
-                await container.screenshot(path=SCREENSHOT_PATH)
+                await container.screenshot(path=path_salvar)
                 used_container = True
-                print("Screenshot do container salvo.")
+                print(f"Screenshot salvo em {path_salvar}")
             except:
-                await page.screenshot(path=SCREENSHOT_PATH, full_page=True)
+                await page.screenshot(path=path_salvar, full_page=True)
         else:
-            await page.screenshot(path=SCREENSHOT_PATH, full_page=True)
+            await page.screenshot(path=path_salvar, full_page=True)
 
         await browser.close()
+        return True, used_container
 
-    if not used_container:
-        smart_crop_padded(SCREENSHOT_PATH)
+async def gerar_e_enviar_evidencia_principal():
+    print("\n--- Evidência Principal ---")
+    auth_json = os.environ.get("LOOKER_COOKIES")
+    if not auth_json:
+        print("⚠️ LOOKER_COOKIES não encontrado.")
+        return
 
-    enviar_webhook_texto("Segue reporte operacional:")
-    enviar_imagem_base64(SCREENSHOT_PATH)
+    report_url, turno_label = escolher_report_por_turno()
+    print(f"Alvo: {turno_label}")
+
+    sucesso, used_container = await capturar_looker(report_url, SCREENSHOT_PATH, auth_json)
+    
+    if sucesso:
+        if not used_container: smart_crop_padded(SCREENSHOT_PATH)
+        enviar_webhook_generico(f"Segue reporte operacional ({turno_label}):", WEBHOOK_URL)
+        enviar_imagem_generico(SCREENSHOT_PATH, WEBHOOK_URL)
+
+async def gerar_e_enviar_evidencia_extra():
+    print("\n--- Evidência Extra (Segundo Print) ---")
+    auth_json = os.environ.get("LOOKER_COOKIES")
+    
+    sucesso, used_container = await capturar_looker(REPORT_URL_EXTRA, SCREENSHOT_PATH_EXTRA, auth_json)
+    
+    if sucesso:
+        if not used_container: smart_crop_padded(SCREENSHOT_PATH_EXTRA)
+        enviar_webhook_generico("Segue reporte adicional:", WEBHOOK_URL_EXTRA)
+        enviar_imagem_generico(SCREENSHOT_PATH_EXTRA, WEBHOOK_URL_EXTRA)
 
 
 # ==============================================================================
@@ -248,7 +299,6 @@ async def gerar_e_enviar_evidencia():
 async def main():       
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     
-    # Inicializa variáveis para evitar erro "UnboundLocalError"
     final_path1 = None
     final_path2 = None
     final_path3 = None
@@ -283,7 +333,6 @@ async def main():
             print("Baixando Produtividade...")
             await page.goto("https://spx.shopee.com.br/#/dashboard/toProductivity?page_type=Outbound")
             
-            # Correção: Uso explícito de 'xpath=' para evitar erro de parser CSS
             export_btn_xpath = "//button[contains(normalize-space(),'Exportar')]"
             try:
                 await page.wait_for_selector(f"xpath={export_btn_xpath}", state="visible", timeout=60000)
@@ -331,7 +380,6 @@ async def main():
             print("Baixando Produtividade 2...")
             await page.goto("https://spx.shopee.com.br/#/dashboard/toProductivity")
             
-            # Correção: Uso explícito de 'xpath=' para evitar erro de parser CSS
             btn3_xpath = '/html/body/div[1]/div/div[2]/div[2]/div/div/div/div[2]/div[1]/div/div[1]/div[2]/div[3]/span/span/span/button'
             await page.wait_for_selector(f"xpath={btn3_xpath}", state="visible", timeout=60000)
             await page.locator(f"xpath={btn3_xpath}").click()
@@ -358,6 +406,11 @@ async def main():
         print("Sincronizando (10s)...")
         time.sleep(10)
 
+        # --- AQUI ESTÁ A NOVA CHAMADA DA LIMPEZA ---
+        # Verifica se precisa limpar a base antes de rodar a lógica das horas
+        limpar_base_se_necessario()
+        # -------------------------------------------
+
         # Definição das horas
         now_br = datetime.now(FUSO_BR)
         horas = [now_br.hour]
@@ -379,8 +432,18 @@ async def main():
     JANELA_FIM = 11
     
     if JANELA_INICIO <= minuto_atual <= JANELA_FIM:
-        print(f"✅ Dentro da janela ({JANELA_INICIO}-{JANELA_FIM} min). Gerando imagem...")
-        await gerar_e_enviar_evidencia()
+        print(f"✅ Dentro da janela ({JANELA_INICIO}-{JANELA_FIM} min).")
+        
+        # 1. Gera e envia o print Principal
+        await gerar_e_enviar_evidencia_principal()
+        
+        # 2. Gera e envia o print Extra (Novo)
+        # O print extra roda na mesma janela de tempo do principal
+        if "COLOQUE_AQUI" not in REPORT_URL_EXTRA:
+            await gerar_e_enviar_evidencia_extra()
+        else:
+            print("⚠️ URL Extra não configurada. Segundo print ignorado.")
+            
     else:
         print(f"🚫 Fora da janela de imagem ({minuto_atual} min). A imagem só é gerada entre {JANELA_INICIO} e {JANELA_FIM} da hora.")
         print("Script finalizado.")
