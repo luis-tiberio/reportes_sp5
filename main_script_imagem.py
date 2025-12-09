@@ -37,11 +37,10 @@ REPORT_URL_T3 = "https://lookerstudio.google.com/s/nps1V7Dtudo"   # demais horá
 # Webhook Principal
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL") or "https://openapi.seatalk.io/webhook/group/ks-dZEaLQt-1xCOAp54hLQ"
 
-# --- NOVO: CONFIGURAÇÃO DO SEGUNDO PRINT ---
-# Substitua abaixo pelos links reais do segundo relatório
+# --- CONFIGURAÇÃO DO SEGUNDO PRINT (EXTRA) ---
 REPORT_URL_EXTRA = "https://lookerstudio.google.com/s/pg9Ho6yKSdk"
-WEBHOOK_URL_EXTRA = os.environ.get("WEBHOOK_URL_EXTRA") or "https://openapi.seatalk.io/webhook/group/6968RfmNTh-rKeNcNevEkg"
-# -------------------------------------------
+WEBHOOK_URL_EXTRA = "https://openapi.seatalk.io/webhook/group/6968RfmNTh-rKeNcNevEkg"
+# ---------------------------------------------
 
 # Mapa de Colunas (Lógica das Horas)
 MAPA_HORAS = {
@@ -107,10 +106,10 @@ def update_sheet(csv_path, sheet_id, tab_name):
     except Exception as e:
         print(f"Erro no upload {tab_name}: {e}")
 
-# --- NOVA FUNÇÃO DE LIMPEZA (06:12 - 06:16) ---
+# --- FUNÇÃO DE LIMPEZA (Adaptada do GAS myFunction1) ---
 def limpar_base_se_necessario():
     now = datetime.now(FUSO_BR)
-    # Verifica se é 06 horas E se os minutos estão entre 12 e 16
+    # Roda somente às 06h, entre os minutos 12 e 16
     if now.hour == 6 and 12 <= now.minute <= 16:
         print(f"🧹 Horário de limpeza detectado ({now.strftime('%H:%M')}). Iniciando limpeza da Base Script...")
         try:
@@ -118,8 +117,7 @@ def limpar_base_se_necessario():
             spreadsheet = client.open_by_key(ID_PLANILHA_DESTINO_SCRIPT)
             ws_destino = spreadsheet.worksheet('Base Script')
             
-            # Limpa de C2 até AX (preserva cabeçalho)
-            # batch_clear é eficiente para limpar grandes intervalos
+            # Limpa de C2 até AX (preservando cabeçalho A1:AX1 e colunas A/B)
             ws_destino.batch_clear(["C2:AX"]) 
             
             print("✅ 'Base Script' (C2:AX) limpa com sucesso!")
@@ -127,8 +125,7 @@ def limpar_base_se_necessario():
         except Exception as e:
             print(f"❌ Erro ao limpar a base: {e}")
     else:
-        # Se não for o horário, segue sem limpar
-        pass
+        pass # Não é horário de limpeza, segue normal
 # ----------------------------------------------
 
 def executar_logica_hora_local(horas_para_executar):
@@ -167,7 +164,7 @@ def enviar_imagem_generico(caminho_imagem, url_webhook):
         with open(caminho_imagem, "rb") as f:
             img_b64 = base64.b64encode(f.read()).decode('utf-8')
         requests.post(url_webhook, json={"tag": "image", "image_base64": {"content": img_b64}})
-        print(f"Imagem enviada com sucesso para: ...{url_webhook[-10:]}")
+        print(f"Imagem enviada com sucesso para webhook final ...{url_webhook[-5:]}")
     except Exception as e: print(f"Erro webhook imagem: {e}")
 
 def smart_crop_padded(image_path):
@@ -203,7 +200,7 @@ async def capturar_looker(url_report, path_salvar, auth_json):
     """Função reutilizável para abrir looker e tirar print"""
     if "COLOQUE_AQUI" in url_report:
         print("⚠️ URL do Looker extra não configurada.")
-        return False
+        return False, False
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -406,10 +403,8 @@ async def main():
         print("Sincronizando (10s)...")
         time.sleep(10)
 
-        # --- AQUI ESTÁ A NOVA CHAMADA DA LIMPEZA ---
-        # Verifica se precisa limpar a base antes de rodar a lógica das horas
+        # 1. Executa limpeza se estiver no horário 06:12-06:16
         limpar_base_se_necessario()
-        # -------------------------------------------
 
         # Definição das horas
         now_br = datetime.now(FUSO_BR)
@@ -433,17 +428,8 @@ async def main():
     
     if JANELA_INICIO <= minuto_atual <= JANELA_FIM:
         print(f"✅ Dentro da janela ({JANELA_INICIO}-{JANELA_FIM} min).")
-        
-        # 1. Gera e envia o print Principal
         await gerar_e_enviar_evidencia_principal()
-        
-        # 2. Gera e envia o print Extra (Novo)
-        # O print extra roda na mesma janela de tempo do principal
-        if "COLOQUE_AQUI" not in REPORT_URL_EXTRA:
-            await gerar_e_enviar_evidencia_extra()
-        else:
-            print("⚠️ URL Extra não configurada. Segundo print ignorado.")
-            
+        await gerar_e_enviar_evidencia_extra()
     else:
         print(f"🚫 Fora da janela de imagem ({minuto_atual} min). A imagem só é gerada entre {JANELA_INICIO} e {JANELA_FIM} da hora.")
         print("Script finalizado.")
