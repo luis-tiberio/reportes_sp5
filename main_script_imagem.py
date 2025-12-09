@@ -34,7 +34,7 @@ REPORT_URL_T2 = "https://lookerstudio.google.com/s/sS1xru1_0LU"   # 14h–21h
 REPORT_URL_T3 = "https://lookerstudio.google.com/s/nps1V7Dtudo"   # demais horários
 
 # Webhook
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL") or "https://openapi.seatalk.io/webhook/group/x9t3byIZTe-IYt4ye5kUFQ"
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL") or "https://openapi.seatalk.io/webhook/group/ks-dZEaLQt-1xCOAp54hLQ"
 
 # Mapa de Colunas (Lógica das Horas)
 MAPA_HORAS = {
