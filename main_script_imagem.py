@@ -291,13 +291,13 @@ async def processar_evidencias_unificado():
 async def enviar_evidencia_principal_async():
     """Envia o primeiro print pelo webhook principal."""
     url_princ, label_princ = escolher_report_por_turno()
-    msg = f"Segue reporte operacional ({label_princ}):"
+    msg = f"Segue reporte operacional:"
     print("\n--- INICIANDO ENVIO: PRINCIPAL ---")
     enviar_webhook_final(msg, SCREENSHOT_PATH, WEBHOOK_URL_MAIN)
 
 async def enviar_evidencia_extra_async():
     """Envia o segundo print pelo webhook extra, após um delay."""
-    msg = "Segue reporte adicional:"
+    msg = "Segue reporte operacional:"
     print("\n--- INICIANDO ENVIO: EXTRA ---")
     enviar_webhook_final(msg, SCREENSHOT_PATH_EXTRA, WEBHOOK_URL_EXTRA)
 
@@ -343,7 +343,7 @@ async def main():
         now_check = datetime.now(FUSO_BR)
         minuto_atual = now_check.minute
         JANELA_INICIO = 7
-        JANELA_FIM = 13
+        JANELA_FIM = 11
         
         if JANELA_INICIO <= minuto_atual <= JANELA_FIM:
             print(f"✅ Dentro da janela de imagem ({JANELA_INICIO}-{JANELA_FIM} min).")
