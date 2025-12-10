@@ -1,4 +1,4 @@
-name: Dados Prod-WS
+name: Dados - SCRIPT - TESTE
 
 on:
   workflow_dispatch:        # Permite execução manual
@@ -28,6 +28,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           playwright install chromium
+          pip install playwright pillow
 
       - name: Executar o script
-        run: xvfb-run python main2.py
+        # run: xvfb-run python main_script.py
+        env:
+          LOOKER_COOKIES: ${{ secrets.LOOKER_COOKIES }}
+          # WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          # WEBHOOK_URL_EXTRA: ${{ secrets.WEBHOOK_URL_EXTRA }}
+        run: xvfb-run python main_script.py
+        
+      - name: Upload das Evidências (Prints)
+        if: always()  # Garante que roda mesmo se o script der erro antes
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprovantes-looker
+          path: |
+            looker_evidence.png
+            looker_evidence_extra.png
+          retention-days: 1 # Dias de armazenamento da imagem
