@@ -39,7 +39,7 @@ WEBHOOK_URL = os.environ.get("WEBHOOK_URL") or "https://openapi.seatalk.io/webho
 
 # --- CONFIGURAÇÃO DO SEGUNDO PRINT (EXTRA) ---
 REPORT_URL_EXTRA = "https://lookerstudio.google.com/s/pg9Ho6yKSdk"
-WEBHOOK_URL_EXTRA = "https://openapi.seatalk.io/webhook/group/6968RfmNTh-rKeNcNevEkg"
+WEBHOOK_URL_EXTRA = os.environ.get("WEBHOOK_URL_EXTRA") or "https://openapi.seatalk.io/webhook/group/6968RfmNTh-rKeNcNevEkg"
 # ---------------------------------------------
 
 # Mapa de Colunas (Lógica das Horas)
@@ -269,7 +269,7 @@ async def gerar_e_enviar_evidencia_principal():
     
     if sucesso:
         if not used_container: smart_crop_padded(SCREENSHOT_PATH)
-        enviar_webhook_generico(f"Segue reporte operacional ({turno_label}):", WEBHOOK_URL)
+        enviar_webhook_generico(f"Segue reporte operacional:", WEBHOOK_URL)
         enviar_imagem_generico(SCREENSHOT_PATH, WEBHOOK_URL)
 
 async def gerar_e_enviar_evidencia_extra():
@@ -281,7 +281,7 @@ async def gerar_e_enviar_evidencia_extra():
     
     if sucesso:
         if not used_container: smart_crop_padded(SCREENSHOT_PATH_EXTRA)
-        enviar_webhook_generico("Segue reporte adicional:", WEBHOOK_URL_EXTRA)
+        enviar_webhook_generico("Segue reporte operacional:", WEBHOOK_URL_EXTRA)
         enviar_imagem_generico(SCREENSHOT_PATH_EXTRA, WEBHOOK_URL_EXTRA)
 
 
@@ -419,7 +419,7 @@ async def main():
     
     # JANELA DE EVIDÊNCIA: 7 a 13
     JANELA_INICIO = 7
-    JANELA_FIM = 13
+    JANELA_FIM = 11
     
     if JANELA_INICIO <= minuto_atual <= JANELA_FIM:
         print(f"✅ Dentro da janela ({JANELA_INICIO}-{JANELA_FIM} min).")
