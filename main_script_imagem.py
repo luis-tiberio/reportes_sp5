@@ -216,14 +216,14 @@ async def processar_evidencias_unificado():
             "url": url_princ,
             "path": SCREENSHOT_PATH,
             "webhook": WEBHOOK_URL_MAIN,
-            "msg": f"Segue reporte operacional ({label_princ}):"
+            "msg": f"Segue reporte operacional:"
         },
         {
             "nome": "Extra",
             "url": REPORT_URL_EXTRA,
             "path": SCREENSHOT_PATH_EXTRA,
             "webhook": WEBHOOK_URL_EXTRA,
-            "msg": "Segue reporte adicional:"
+            "msg": "Segue reporte operacional:"
         }
     ]
 
