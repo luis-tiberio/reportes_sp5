@@ -396,8 +396,8 @@ async def main():
         update_sheet(final_path1, ID_PLANILHA_DADOS, "PROD")
         update_sheet(final_path2, ID_PLANILHA_DADOS, "WS T1")
         update_sheet(final_path3, ID_PLANILHA_INBOUND, "INBOUND")
-        print("Sincronizando (10s)...")
-        time.sleep(10)
+        print("Sincronizando (20s)...")
+        time.sleep(20)
 
         limpar_base_se_necessario()
 
