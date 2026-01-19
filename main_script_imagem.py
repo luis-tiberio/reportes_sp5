@@ -343,7 +343,7 @@ async def main():
             path1 = os.path.join(DOWNLOAD_DIR, file1.suggested_filename)
             await file1.save_as(path1)
             final_path1 = rename_downloaded_file(DOWNLOAD_DIR, path1, "PROD")
-
+'''
             # DOWNLOAD 2
             print("Baixando WS Assignment...")
             await page.goto("https://spx.shopee.com.br/#/workstation-assignment")
@@ -386,6 +386,7 @@ async def main():
             path3 = os.path.join(DOWNLOAD_DIR, file3.suggested_filename)
             await file3.save_as(path3)
             final_path3 = rename_downloaded_file(DOWNLOAD_DIR, path3, "IN")
+'''
 
         except Exception as e:
             print(f"Erro no fluxo de download: {e}")
@@ -396,7 +397,7 @@ async def main():
     if final_path1 and final_path2 and final_path3:
         update_sheet(final_path1, ID_PLANILHA_DADOS, "PROD")
         update_sheet(final_path2, ID_PLANILHA_DADOS, "WS T1")
-        update_sheet(final_path3, ID_PLANILHA_INBOUND, "INBOUND")
+        #update_sheet(final_path3, ID_PLANILHA_INBOUND, "INBOUND")
         print("Sincronizando (20s)...")
         time.sleep(20)
 
