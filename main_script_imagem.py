@@ -26,7 +26,7 @@ FUSO_BR = timezone(timedelta(hours=-3))
 
 # IDs das Planilhas
 ID_PLANILHA_DADOS = "1uN6ILlmVgLc_Y7Tv3t0etliMwUAiZM1zC-jhXT3CsoU"
-ID_PLANILHA_INBOUND = "1uN6ILlmVgLc_Y7Tv3t0etliMwUAiZM1zC-jhXT3CsoU"
+# ID_PLANILHA_INBOUND = "1uN6ILlmVgLc_Y7Tv3t0etliMwUAiZM1zC-jhXT3CsoU"
 ID_PLANILHA_DESTINO_SCRIPT = "1lTL4DVBHPfG9OaSO_ePDsP0hWEm_tCnyNd4UqeVzLFI"
 
 # URLs do Looker (Turnos)
@@ -294,7 +294,7 @@ async def main():
     
     final_path1 = None
     final_path2 = None
-    final_path3 = None
+    # final_path3 = None
     
     print(">>> FASE 1: ATUALIZAÇÃO DE DADOS <<<")
     
