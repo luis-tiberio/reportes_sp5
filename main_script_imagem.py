@@ -343,7 +343,7 @@ async def main():
             path1 = os.path.join(DOWNLOAD_DIR, file1.suggested_filename)
             await file1.save_as(path1)
             final_path1 = rename_downloaded_file(DOWNLOAD_DIR, path1, "PROD")
-'''
+
             # DOWNLOAD 2
             print("Baixando WS Assignment...")
             await page.goto("https://spx.shopee.com.br/#/workstation-assignment")
@@ -368,7 +368,7 @@ async def main():
             path2 = os.path.join(DOWNLOAD_DIR, file2.suggested_filename)
             await file2.save_as(path2)
             final_path2 = rename_downloaded_file(DOWNLOAD_DIR, path2, "WS")
-
+'''
             # DOWNLOAD 3
             print("Baixando Produtividade 2...")
             await page.goto("https://spx.shopee.com.br/#/dashboard/toProductivity")
