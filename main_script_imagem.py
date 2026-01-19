@@ -380,7 +380,8 @@ async def main():
             await page.wait_for_timeout(2000)
             await page.locator("div").filter(has_text=re.compile("^Exportar$")).click()
             async with page.expect_download() as dl_info:
-                await page.locator('xpath=/html/body/span/div/div[1]/div/span/div/div[2]/div[2]/div[1]/div/div[1]/div/div[1]/div[2]/button').click()
+                await page.locator('xpath=/html[1]/body[1]/span[2]/div[1]/div[1]/div[1]/span[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/button[1]').click()
+                #await page.locator('xpath=/html/body/span/div/div[1]/div/span/div/div[2]/div[2]/div[1]/div/div[1]/div/div[1]/div[2]/button').click()
             file3 = await dl_info.value
             path3 = os.path.join(DOWNLOAD_DIR, file3.suggested_filename)
             await file3.save_as(path3)
