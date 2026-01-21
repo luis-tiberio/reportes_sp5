@@ -201,10 +201,10 @@ async def capturar_looker(url_report, path_salvar, auth_json):
             browser = await p.chromium.launch(headless=True)
             context = await browser.new_context(
                 storage_state=json.loads(auth_json),
-                #viewport={'width': 2200, 'height': 3000}
+                viewport={'width': 2200, 'height': 3000}
             )
             page = await context.new_page()
-            page.set_default_timeout(90000)
+            page.set_default_timeout(100000)
 
             await page.goto(url_report)
             await page.wait_for_load_state("domcontentloaded")
