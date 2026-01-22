@@ -199,60 +199,101 @@ async def capturar_looker(url_report, path_salvar, auth_json):
     async with async_playwright() as p:
         try:
             browser = await p.chromium.launch(headless=True)
+            # Iniciamos com um tamanho padrão
             context = await browser.new_context(
                 storage_state=json.loads(auth_json),
-                viewport={'width': 2200, 'height': 3000}
+                viewport={'width': 1920, 'height': 1080} 
             )
             page = await context.new_page()
             page.set_default_timeout(100000)
 
             await page.goto(url_report)
             await page.wait_for_load_state("domcontentloaded")
-            await asyncio.sleep(20)
+            await asyncio.sleep(20) # Tempo vital para o Looker conectar dados
 
-            # Tenta Refresh
+            # --- Lógica de Refresh (Mantida) ---
             try:
                 edit_btn = page.get_by_role("button", name="Editar", exact=True).or_(page.get_by_role("button", name="Edit", exact=True))
                 if await edit_btn.count() > 0 and await edit_btn.first.is_visible():
                     await edit_btn.first.click()
-                    print("> Refresh...")
                     await asyncio.sleep(15)
-                    leitura_btn = page.get_by_role("button", name="Leitura").or_(page.get_by_text("Leitura")).or_(page.get_by_label("Modo de leitura"))
+                    leitura_btn = page.get_by_role("button", name="Leitura").or_(page.get_by_text("Leitura"))
                     if await leitura_btn.count() > 0:
                         await leitura_btn.first.click()
                         await asyncio.sleep(15)
             except Exception: pass
 
-            # Limpeza CSS
+            # --- LIMPEZA VISUAL (CSS) ---
             await page.evaluate("""() => {
-                const selectors = ['header', '.ga-sidebar', '#align-lens-view', '.bottomContent', '.paginationPanel', '.feature-content-header', '.lego-report-header', '.header-container', 'div[role="banner"]', '.page-navigation-panel'];
-                selectors.forEach(sel => { document.querySelectorAll(sel).forEach(el => el.style.display = 'none'); });
+                const selectors = ['header', '.ga-sidebar', '#align-lens-view', '.bottomContent', '.paginationPanel', 
+                                   '.feature-content-header', '.lego-report-header', '.header-container', 
+                                   'div[role="banner"]', '.page-navigation-panel', '.sandbox-header'];
+                selectors.forEach(sel => { 
+                    document.querySelectorAll(sel).forEach(el => el.style.display = 'none'); 
+                });
                 document.body.style.backgroundColor = '#eeeeee';
+                // Remove scrollbar global para não sair no print
+                document.body.style.overflow = 'hidden'; 
             }""")
-            await asyncio.sleep(5)
+            await asyncio.sleep(2)
 
-            used_container = False
+            # --- PROCURAR O CONTAINER CORRETO ---
             container = None
-            for frame in page.frames:
-                cand = frame.locator("div.ng2-canvas-container.grid")
-                if await cand.count() > 0:
-                    container = cand.first
+            
+            # Tenta encontrar o container principal de gráficos
+            # Dica: O seletor 'div.ng2-canvas-container' é o mais comum, mas às vezes o 'lego-report' ou 'canvas' direto funciona melhor
+            possiveis_seletores = ["div.ng2-canvas-container", "div.lego-report-view", "div.canvas-container"]
+            
+            for selector in possiveis_seletores:
+                loc = page.locator(selector)
+                if await loc.count() > 0:
+                    container = loc.first
+                    print(f"Container encontrado: {selector}")
                     break
             
+            used_container = False
             if container:
+                # --- TRUQUE PRINCIPAL: ROLAR E REDIMENSIONAR ---
+                
+                # 1. Scroll para baixo para forçar carregamento (Lazy Loading)
+                print("Rolando para carregar dados do fundo...")
+                await container.evaluate("el => el.scrollIntoView({ block: 'end', inline: 'nearest' })")
+                await asyncio.sleep(5)
+                
+                # 2. Descobrir a altura REAL do conteúdo (scrollHeight)
+                # O bounding_box pega o tamanho visível, o scrollHeight pega o tamanho total do conteúdo
+                altura_real = await container.evaluate("el => el.scrollHeight")
+                altura_atual_viewport = page.viewport_size['height']
+                
+                print(f"Altura do conteúdo: {altura_real}px (Viewport atual: {altura_atual_viewport}px)")
+
+                # 3. Se o conteúdo for maior que a tela, redimensionamos a janela!
+                # Isso garante que o print do elemento não seja cortado pelo viewport do browser
+                if altura_real > 0:
+                    nova_altura = altura_real + 150 # +150px de margem de segurança
+                    print(f"Redimensionando Viewport para {nova_altura}px...")
+                    await page.set_viewport_size({"width": 1920, "height": nova_altura})
+                    await asyncio.sleep(3) # Espera o browser renderizar o novo tamanho
+                
+                # Volta o scroll pro topo para garantir alinhamento
+                await container.evaluate("el => el.scrollIntoView({ block: 'start', inline: 'nearest' })")
+                await asyncio.sleep(2)
+
+                # 4. Print do Elemento Específico
                 try:
-                    await container.scroll_into_view_if_needed()
-                    await asyncio.sleep(2)
                     await container.screenshot(path=path_salvar)
                     used_container = True
-                    print(f"Screenshot salvo em {path_salvar}")
-                except:
+                    print(f"Screenshot do container salvo em {path_salvar}")
+                except Exception as e_shot:
+                    print(f"Erro no print do container, tentando fallback: {e_shot}")
                     await page.screenshot(path=path_salvar, full_page=True)
             else:
+                print("Container não encontrado, usando full_page.")
                 await page.screenshot(path=path_salvar, full_page=True)
 
             await browser.close()
             return True, used_container
+
         except Exception as e:
             print(f"❌ Erro ao capturar Looker ({url_report}): {e}")
             return False, False
