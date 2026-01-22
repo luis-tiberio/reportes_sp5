@@ -202,7 +202,7 @@ async def capturar_looker(url_report, path_salvar, auth_json):
             # Iniciamos com um tamanho padrão
             context = await browser.new_context(
                 storage_state=json.loads(auth_json),
-                viewport={'width': 1920, 'height': 1080} 
+                viewport={'width': 2000, 'height': 1080} 
             )
             page = await context.new_page()
             page.set_default_timeout(100000)
