@@ -199,86 +199,60 @@ async def capturar_looker(url_report, path_salvar, auth_json):
     async with async_playwright() as p:
         try:
             browser = await p.chromium.launch(headless=True)
-            # Viewport fixo e alto, mas não exagerado para não quebrar o layout
             context = await browser.new_context(
                 storage_state=json.loads(auth_json),
-                viewport={'width': 1920, 'height': 1200} 
+                viewport={'width': 2200, 'height': 3000}
             )
             page = await context.new_page()
             page.set_default_timeout(100000)
 
             await page.goto(url_report)
-            await page.wait_for_load_state("networkidle") # Espera a rede acalmar
-            await asyncio.sleep(15) # Espera inicial rigorosa
+            await page.wait_for_load_state("domcontentloaded")
+            await asyncio.sleep(20)
 
-            # --- Lógica de Refresh / Modo Leitura ---
+            # Tenta Refresh
             try:
-                # Tenta sair do modo edição se estiver nele
-                edit_btn = page.get_by_role("button", name="Editar").or_(page.get_by_role("button", name="Edit"))
+                edit_btn = page.get_by_role("button", name="Editar", exact=True).or_(page.get_by_role("button", name="Edit", exact=True))
                 if await edit_btn.count() > 0 and await edit_btn.first.is_visible():
                     await edit_btn.first.click()
-                    await asyncio.sleep(10)
-            except: pass
+                    print("> Refresh...")
+                    await asyncio.sleep(15)
+                    leitura_btn = page.get_by_role("button", name="Leitura").or_(page.get_by_text("Leitura")).or_(page.get_by_label("Modo de leitura"))
+                    if await leitura_btn.count() > 0:
+                        await leitura_btn.first.click()
+                        await asyncio.sleep(15)
+            except Exception: pass
 
-            # --- LIMPEZA VISUAL ---
+            # Limpeza CSS
             await page.evaluate("""() => {
-                const selectors = ['header', '.ga-sidebar', '#align-lens-view', '.bottomContent', '.paginationPanel', 
-                                   '.feature-content-header', '.lego-report-header', '.header-container', 
-                                   'div[role="banner"]', '.page-navigation-panel'];
-                selectors.forEach(sel => { 
-                    document.querySelectorAll(sel).forEach(el => el.style.display = 'none'); 
-                });
+                const selectors = ['header', '.ga-sidebar', '#align-lens-view', '.bottomContent', '.paginationPanel', '.feature-content-header', '.lego-report-header', '.header-container', 'div[role="banner"]', '.page-navigation-panel'];
+                selectors.forEach(sel => { document.querySelectorAll(sel).forEach(el => el.style.display = 'none'); });
                 document.body.style.backgroundColor = '#eeeeee';
             }""")
+            await asyncio.sleep(5)
 
-            # --- O SEGREDO: SCROLL GRADUAL (HUMANO) ---
-            print("Iniciando scroll gradual para forçar renderização...")
+            used_container = False
+            container = None
+            for frame in page.frames:
+                cand = frame.locator("div.ng2-canvas-container.grid")
+                if await cand.count() > 0:
+                    container = cand.first
+                    break
             
-            # Pega a altura total da página
-            total_height = await page.evaluate("document.body.scrollHeight")
-            viewport_height = 1000
-            scrolled = 0
-            
-            # Desce de 500 em 500 pixels
-            while scrolled < total_height:
-                scrolled += 500
-                await page.mouse.wheel(0, 500) # Simula a roda do mouse (melhor que scrollTo)
-                await asyncio.sleep(1.5) # Espera 1.5s a cada descida para o gráfico "acordar"
-            
-            # Espera final lá embaixo para garantir os últimos gráficos
-            await asyncio.sleep(3)
-            
-            # Volta para o topo (opcional, mas às vezes realinha o layout)
-            # Se ao voltar para o topo os de baixo ficarem cinza de novo, comente as duas linhas abaixo
-            await page.evaluate("window.scrollTo(0, 0)")
-            await asyncio.sleep(2)
-
-            # --- CAPTURA ---
-            # Vamos tentar pegar o container específico primeiro
-            container = page.locator("div.ng2-canvas-container").first
-            if await container.count() == 0:
-                 # Fallback para outros seletores comuns do Looker
-                 container = page.locator(".lego-report-view").first
-
-            if await container.count() > 0:
-                print(f"Container encontrado. Salvando em {path_salvar}")
+            if container:
                 try:
-                    # O container.screenshot recorta exatamente a área do relatório
+                    await container.scroll_into_view_if_needed()
+                    await asyncio.sleep(2)
                     await container.screenshot(path=path_salvar)
                     used_container = True
+                    print(f"Screenshot salvo em {path_salvar}")
                 except:
-                    # Se falhar, vai de full page
-                    print("Falha no container, usando full page.")
                     await page.screenshot(path=path_salvar, full_page=True)
-                    used_container = False
             else:
-                print("Container não achado, usando full page.")
                 await page.screenshot(path=path_salvar, full_page=True)
-                used_container = False
 
             await browser.close()
             return True, used_container
-
         except Exception as e:
             print(f"❌ Erro ao capturar Looker ({url_report}): {e}")
             return False, False
