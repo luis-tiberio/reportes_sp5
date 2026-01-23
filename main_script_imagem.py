@@ -199,97 +199,82 @@ async def capturar_looker(url_report, path_salvar, auth_json):
     async with async_playwright() as p:
         try:
             browser = await p.chromium.launch(headless=True)
-            # Iniciamos com um tamanho padrão
+            # Viewport fixo e alto, mas não exagerado para não quebrar o layout
             context = await browser.new_context(
                 storage_state=json.loads(auth_json),
-                viewport={'width': 2000, 'height': 1080} 
+                viewport={'width': 1920, 'height': 1200} 
             )
             page = await context.new_page()
             page.set_default_timeout(100000)
 
             await page.goto(url_report)
-            await page.wait_for_load_state("domcontentloaded")
-            await asyncio.sleep(20) # Tempo vital para o Looker conectar dados
+            await page.wait_for_load_state("networkidle") # Espera a rede acalmar
+            await asyncio.sleep(15) # Espera inicial rigorosa
 
-            # --- Lógica de Refresh (Mantida) ---
+            # --- Lógica de Refresh / Modo Leitura ---
             try:
-                edit_btn = page.get_by_role("button", name="Editar", exact=True).or_(page.get_by_role("button", name="Edit", exact=True))
+                # Tenta sair do modo edição se estiver nele
+                edit_btn = page.get_by_role("button", name="Editar").or_(page.get_by_role("button", name="Edit"))
                 if await edit_btn.count() > 0 and await edit_btn.first.is_visible():
                     await edit_btn.first.click()
-                    await asyncio.sleep(15)
-                    leitura_btn = page.get_by_role("button", name="Leitura").or_(page.get_by_text("Leitura"))
-                    if await leitura_btn.count() > 0:
-                        await leitura_btn.first.click()
-                        await asyncio.sleep(15)
-            except Exception: pass
+                    await asyncio.sleep(10)
+            except: pass
 
-            # --- LIMPEZA VISUAL (CSS) ---
+            # --- LIMPEZA VISUAL ---
             await page.evaluate("""() => {
                 const selectors = ['header', '.ga-sidebar', '#align-lens-view', '.bottomContent', '.paginationPanel', 
                                    '.feature-content-header', '.lego-report-header', '.header-container', 
-                                   'div[role="banner"]', '.page-navigation-panel', '.sandbox-header'];
+                                   'div[role="banner"]', '.page-navigation-panel'];
                 selectors.forEach(sel => { 
                     document.querySelectorAll(sel).forEach(el => el.style.display = 'none'); 
                 });
                 document.body.style.backgroundColor = '#eeeeee';
-                // Remove scrollbar global para não sair no print
-                document.body.style.overflow = 'hidden'; 
             }""")
+
+            # --- O SEGREDO: SCROLL GRADUAL (HUMANO) ---
+            print("Iniciando scroll gradual para forçar renderização...")
+            
+            # Pega a altura total da página
+            total_height = await page.evaluate("document.body.scrollHeight")
+            viewport_height = 1000
+            scrolled = 0
+            
+            # Desce de 500 em 500 pixels
+            while scrolled < total_height:
+                scrolled += 500
+                await page.mouse.wheel(0, 500) # Simula a roda do mouse (melhor que scrollTo)
+                await asyncio.sleep(1.5) # Espera 1.5s a cada descida para o gráfico "acordar"
+            
+            # Espera final lá embaixo para garantir os últimos gráficos
+            await asyncio.sleep(3)
+            
+            # Volta para o topo (opcional, mas às vezes realinha o layout)
+            # Se ao voltar para o topo os de baixo ficarem cinza de novo, comente as duas linhas abaixo
+            await page.evaluate("window.scrollTo(0, 0)")
             await asyncio.sleep(2)
 
-            # --- PROCURAR O CONTAINER CORRETO ---
-            container = None
-            
-            # Tenta encontrar o container principal de gráficos
-            # Dica: O seletor 'div.ng2-canvas-container' é o mais comum, mas às vezes o 'lego-report' ou 'canvas' direto funciona melhor
-            possiveis_seletores = ["div.ng2-canvas-container", "div.lego-report-view", "div.canvas-container"]
-            
-            for selector in possiveis_seletores:
-                loc = page.locator(selector)
-                if await loc.count() > 0:
-                    container = loc.first
-                    print(f"Container encontrado: {selector}")
-                    break
-            
-            used_container = False
-            if container:
-                # --- TRUQUE PRINCIPAL: ROLAR E REDIMENSIONAR ---
-                
-                # 1. Scroll para baixo para forçar carregamento (Lazy Loading)
-                print("Rolando para carregar dados do fundo...")
-                await container.evaluate("el => el.scrollIntoView({ block: 'end', inline: 'nearest' })")
-                await asyncio.sleep(5)
-                
-                # 2. Descobrir a altura REAL do conteúdo (scrollHeight)
-                # O bounding_box pega o tamanho visível, o scrollHeight pega o tamanho total do conteúdo
-                altura_real = await container.evaluate("el => el.scrollHeight")
-                altura_atual_viewport = page.viewport_size['height']
-                
-                print(f"Altura do conteúdo: {altura_real}px (Viewport atual: {altura_atual_viewport}px)")
+            # --- CAPTURA ---
+            # Vamos tentar pegar o container específico primeiro
+            container = page.locator("div.ng2-canvas-container").first
+            if await container.count() == 0:
+                 # Fallback para outros seletores comuns do Looker
+                 container = page.locator(".lego-report-view").first
 
-                # 3. Se o conteúdo for maior que a tela, redimensionamos a janela!
-                # Isso garante que o print do elemento não seja cortado pelo viewport do browser
-                if altura_real > 0:
-                    nova_altura = altura_real + 150 # +150px de margem de segurança
-                    print(f"Redimensionando Viewport para {nova_altura}px...")
-                    await page.set_viewport_size({"width": 1920, "height": nova_altura})
-                    await asyncio.sleep(3) # Espera o browser renderizar o novo tamanho
-                
-                # Volta o scroll pro topo para garantir alinhamento
-                await container.evaluate("el => el.scrollIntoView({ block: 'start', inline: 'nearest' })")
-                await asyncio.sleep(2)
-
-                # 4. Print do Elemento Específico
+            if await container.count() > 0:
+                print(f"Container encontrado. Salvando em {path_salvar}")
                 try:
+                    # O container.screenshot recorta exatamente a área do relatório
                     await container.screenshot(path=path_salvar)
                     used_container = True
-                    print(f"Screenshot do container salvo em {path_salvar}")
-                except Exception as e_shot:
-                    print(f"Erro no print do container, tentando fallback: {e_shot}")
+                except:
+                    # Se falhar, vai de full page
+                    print("Falha no container, usando full page.")
                     await page.screenshot(path=path_salvar, full_page=True)
+                    used_container = False
             else:
-                print("Container não encontrado, usando full_page.")
+                print("Container não achado, usando full page.")
                 await page.screenshot(path=path_salvar, full_page=True)
+                used_container = False
 
             await browser.close()
             return True, used_container
